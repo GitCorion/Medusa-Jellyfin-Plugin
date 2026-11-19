@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Catalogo</title>
+</head>
+<body>
+<div id="CatalogoConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="CatalogoConfigForm">
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="ProxyUrl">Catalogo proxy URL</label>
+                    <input id="ProxyUrl" name="ProxyUrl" type="url" is="emby-input" />
+                    <div class="fieldDescription">
+                        Local URL of the Catalogo proxy, for example http://127.0.0.1:8773.
+                    </div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="TimeoutSeconds">Timeout (seconds)</label>
+                    <input id="TimeoutSeconds" name="TimeoutSeconds" type="number" min="2" max="120" is="emby-input" />
+                </div>
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+    (function () {
+        var pluginId = '50c67d89-41de-4a95-84e2-4511775d4965';
+        var page = document.querySelector('#CatalogoConfigPage');
+        var form = document.querySelector('#CatalogoConfigForm');
+
+        page.addEventListener('pageshow', function () {
+            ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                document.querySelector('#ProxyUrl').value =
+                    config.ProxyUrl || 'http://127.0.0.1:8773';
+                document.querySelector('#TimeoutSeconds').value =
+                    config.TimeoutSeconds || 15;
+            });
+        });
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                config.ProxyUrl = document.querySelector('#ProxyUrl').value.trim();
+                config.TimeoutSeconds =
+                    parseInt(document.querySelector('#TimeoutSeconds').value, 10) || 15;
+                ApiClient.updatePluginConfiguration(pluginId, config).then(function () {
+                    Dashboard.processPluginConfigurationUpdateResult();
+                });
+            });
+            return false;
+        });
+    })();
+</script>
+</body>
+</html>

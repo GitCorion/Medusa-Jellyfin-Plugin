@@ -1,0 +1,56 @@
+using Jellyfin.Plugin.Catalogo.Configuration;
+using MediaBrowser.Common.Configuration;
+using MediaBrowser.Common.Plugins;
+using MediaBrowser.Model.Plugins;
+using MediaBrowser.Model.Serialization;
+
+namespace Jellyfin.Plugin.Catalogo;
+
+/// <summary>
+/// Catalogo companion plugin: exposes the on-demand proxy state to Jellyfin clients.
+/// </summary>
+public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
+{
+    /// <summary>
+    /// Stable plugin identifier.
+    /// </summary>
+    public static readonly Guid PluginId = Guid.Parse("50c67d89-41de-4a95-84e2-4511775d4965");
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Plugin"/> class.
+    /// </summary>
+    public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
+        : base(applicationPaths, xmlSerializer)
+    {
+        Instance = this;
+    }
+
+    /// <summary>
+    /// Gets the loaded plugin instance.
+    /// </summary>
+    public static Plugin? Instance { get; private set; }
+
+    /// <inheritdoc />
+    public override string Name => "Catalogo";
+
+    /// <inheritdoc />
+    public override Guid Id => PluginId;
+
+    /// <inheritdoc />
+    public override string Description =>
+        "Companion API for the Catalogo on-demand torrent proxy.";
+
+    /// <inheritdoc />
+    public IEnumerable<PluginPageInfo> GetPages()
+    {
+        return new[]
+        {
+            new PluginPageInfo
+            {
+                Name = "catalogo",
+                EmbeddedResourcePath =
+                    "Jellyfin.Plugin.Catalogo.Configuration.configPage.html"
+            }
+        };
+    }
+}
