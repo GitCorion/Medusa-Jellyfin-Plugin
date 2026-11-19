@@ -13,6 +13,7 @@ namespace Jellyfin.Plugin.Catalogo.Api;
 [ApiController]
 [Authorize]
 [Route("Catalogo")]
+[Route("Medusa")]
 [Produces("application/json")]
 public class CatalogoController : ControllerBase
 {
@@ -46,7 +47,7 @@ public class CatalogoController : ControllerBase
         {
             api_version = 1,
             plugin_version = version,
-            features = new[] { "status", "prepare" },
+            features = new[] { "status", "prepare", "lease" },
             proxy_configured = !string.IsNullOrWhiteSpace(
                 Plugin.Instance?.Configuration.ProxyUrl)
         });
@@ -142,6 +143,76 @@ public class CatalogoController : ControllerBase
                     detail = ex.Message
                 });
         }
+    }
+
+    /// <summary>
+    /// Renews the playback lease for a catalog item.
+    /// </summary>
+    [HttpPost("Lease/{itemId:guid}")]
+    public async Task<ActionResult> Lease(
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        var mapped = Map(itemId, null);
+        if (mapped is null)
+        {
+            return Ok(new { is_catalog = false, item_id = itemId });
+        }
+
+        try
+        {
+            var session = Request.Headers["X-Emby-Device-Id"].FirstOrDefault()
+                ?? HttpContext.TraceIdentifier;
+            var leased = await _proxy.LeaseAsync(
+                mapped.Value.Key, $"medusa:{session}", cancellationToken);
+            return Ok(new
+            {
+                is_catalog = true,
+                item_id = itemId,
+                key = mapped.Value.Key,
+                leased
+            });
+        }
+        catch (CatalogoProxyException ex)
+        {
+            _logger.LogWarning(ex, "Catalogo lease failed");
+            return StatusCode(
+                503,
+                new
+                {
+                    is_catalog = true,
+                    item_id = itemId,
+                    error = "proxy_unavailable",
+                    detail = ex.Message
+                });
+        }
+    }
+
+    /// <summary>
+    /// Releases the playback lease for a catalog item.
+    /// </summary>
+    [HttpDelete("Lease/{itemId:guid}")]
+    public async Task<ActionResult> ReleaseLease(
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        var mapped = Map(itemId, null);
+        if (mapped is null)
+        {
+            return Ok(new { is_catalog = false, item_id = itemId });
+        }
+
+        var session = Request.Headers["X-Emby-Device-Id"].FirstOrDefault()
+            ?? HttpContext.TraceIdentifier;
+        await _proxy.ReleaseLeaseAsync(
+            mapped.Value.Key, $"medusa:{session}", cancellationToken);
+        return Ok(new
+        {
+            is_catalog = true,
+            item_id = itemId,
+            key = mapped.Value.Key,
+            released = true
+        });
     }
 
     private (string Key, int? ReleaseId)? Map(Guid itemId, int? release)

@@ -16,6 +16,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         IServerApplicationHost applicationHost)
     {
         serviceCollection.AddHttpClient<CatalogoProxyClient>();
+        serviceCollection.AddHostedService<PlaybackLeaseService>();
         serviceCollection
             .AddControllers()
             .AddApplicationPart(typeof(Plugin).Assembly);

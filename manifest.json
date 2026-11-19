@@ -1,10 +1,10 @@
 [
   {
     "guid": "50c67d89-41de-4a95-84e2-4511775d4965",
-    "name": "Catalogo",
-    "overview": "Companion API for the Catalogo on-demand torrent proxy.",
-    "description": "Exposes Catalogo download status and prepare endpoints to Jellyfin clients.",
-    "owner": "catalogo",
+    "name": "Medusa",
+    "overview": "Medusa companion API for the Catalogo on-demand torrent proxy.",
+    "description": "Exposes Catalogo status, prepare and playback lease endpoints to Medusa clients.",
+    "owner": "medusa",
     "category": "General",
     "imageUrl": "",
     "versions": [

@@ -80,6 +80,39 @@ public class CatalogoProxyClient
         return SendAsync(HttpMethod.Post, url, cancellationToken);
     }
 
+    /// <summary>
+    /// Renews the playback lease for a catalog key.
+    /// </summary>
+    public Task<JsonElement> LeaseAsync(
+        string key,
+        string sessionId,
+        CancellationToken cancellationToken)
+    {
+        var url = $"{BaseUrl}/lease?key={Uri.EscapeDataString(key)}"
+            + $"&session={Uri.EscapeDataString(sessionId)}";
+        return SendAsync(HttpMethod.Post, url, cancellationToken);
+    }
+
+    /// <summary>
+    /// Releases the playback lease when playback stops.
+    /// </summary>
+    public async Task ReleaseLeaseAsync(
+        string key,
+        string sessionId,
+        CancellationToken cancellationToken)
+    {
+        var url = $"{BaseUrl}/lease?key={Uri.EscapeDataString(key)}"
+            + $"&session={Uri.EscapeDataString(sessionId)}";
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(TimeoutSeconds));
+        using var request = new HttpRequestMessage(HttpMethod.Delete, url);
+        request.Headers.Accept.ParseAdd("application/json");
+        using var response = await _http.SendAsync(
+            request, HttpCompletionOption.ResponseContentRead, timeout.Token);
+        // Un 404/200 da igual: el lease caduca solo si no se renueva.
+    }
+
     private async Task<JsonElement> SendAsync(
         HttpMethod method,
         string url,
