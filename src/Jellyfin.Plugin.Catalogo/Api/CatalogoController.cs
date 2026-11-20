@@ -115,9 +115,14 @@ public class CatalogoController : ControllerBase
 
         try
         {
+            var item = _libraryManager.GetItemById(itemId);
+            var runtime = item?.RunTimeTicks is long ticks && ticks > 0
+                ? (int?)(ticks / TimeSpan.TicksPerSecond)
+                : null;
             var prepared = await _proxy.PrepareAsync(
                 mapped.Value.Key,
                 mapped.Value.ReleaseId,
+                runtime,
                 cancellationToken);
             return StatusCode(
                 202,

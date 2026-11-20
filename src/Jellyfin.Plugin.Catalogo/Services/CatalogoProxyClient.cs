@@ -69,12 +69,17 @@ public class CatalogoProxyClient
     public Task<JsonElement> PrepareAsync(
         string key,
         int? releaseId,
+        int? runtimeSeconds,
         CancellationToken cancellationToken)
     {
         var url = $"{BaseUrl}/prepare?key={Uri.EscapeDataString(key)}";
         if (releaseId is not null)
         {
             url += $"&release={releaseId.Value}";
+        }
+        if (runtimeSeconds is not null)
+        {
+            url += $"&runtime={runtimeSeconds.Value}";
         }
 
         return SendAsync(HttpMethod.Post, url, cancellationToken);
