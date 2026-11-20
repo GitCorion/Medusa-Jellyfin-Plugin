@@ -12,16 +12,25 @@ public class CatalogoProxyException : Exception
     /// <summary>
     /// Initializes a new instance of the <see cref="CatalogoProxyException"/> class.
     /// </summary>
-    public CatalogoProxyException(string message, HttpStatusCode? statusCode = null)
+    public CatalogoProxyException(
+        string message,
+        HttpStatusCode? statusCode = null,
+        string? body = null)
         : base(message)
     {
         StatusCode = statusCode;
+        Body = body;
     }
 
     /// <summary>
     /// Gets the HTTP status code, if any.
     /// </summary>
     public HttpStatusCode? StatusCode { get; }
+
+    /// <summary>
+    /// Gets the proxy response body, if any.
+    /// </summary>
+    public string? Body { get; }
 }
 
 /// <summary>
@@ -158,7 +167,8 @@ public class CatalogoProxyClient
             {
                 throw new CatalogoProxyException(
                     $"Catalogo proxy HTTP {(int)response.StatusCode}: {body}",
-                    response.StatusCode);
+                    response.StatusCode,
+                    body);
             }
 
             try

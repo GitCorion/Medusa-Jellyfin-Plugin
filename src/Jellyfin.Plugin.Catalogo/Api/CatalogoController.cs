@@ -92,7 +92,9 @@ public class CatalogoController : ControllerBase
                 {
                     is_catalog = true,
                     item_id = itemId,
-                    error = "proxy_unavailable",
+                    error = ProxyField(ex.Body, "error") ?? "proxy_unavailable",
+                    message = ProxyField(ex.Body, "message")
+                        ?? "No se pudo consultar el estado de la descarga.",
                     detail = ex.Message
                 });
         }
@@ -144,7 +146,9 @@ public class CatalogoController : ControllerBase
                 {
                     is_catalog = true,
                     item_id = itemId,
-                    error = "proxy_unavailable",
+                    error = ProxyField(ex.Body, "error") ?? "proxy_unavailable",
+                    message = ProxyField(ex.Body, "message")
+                        ?? "No se pudo preparar la descarga.",
                     detail = ex.Message
                 });
         }
@@ -187,7 +191,9 @@ public class CatalogoController : ControllerBase
                 {
                     is_catalog = true,
                     item_id = itemId,
-                    error = "proxy_unavailable",
+                    error = ProxyField(ex.Body, "error") ?? "proxy_unavailable",
+                    message = ProxyField(ex.Body, "message")
+                        ?? "No se pudo preparar la descarga.",
                     detail = ex.Message
                 });
         }
@@ -218,6 +224,30 @@ public class CatalogoController : ControllerBase
             key = mapped.Value.Key,
             released = true
         });
+    }
+
+    private static string? ProxyField(string? body, string name)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return null;
+        }
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            if (document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty(name, out var value))
+            {
+                return value.ValueKind == JsonValueKind.String
+                    ? value.GetString()
+                    : value.ToString();
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        return null;
     }
 
     private (string Key, int? ReleaseId)? Map(Guid itemId, int? release)
