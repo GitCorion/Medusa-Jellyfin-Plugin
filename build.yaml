@@ -1,11 +1,11 @@
 ---
 name: "Medusa"
 guid: "50c67d89-41de-4a95-84e2-4511775d4965"
-version: "1.0.0.0"
+version: "1.1.0.0"
 targetAbi: "12.4.0.0"
 framework: "net10.0"
-overview: "Medusa companion API for the TOD on-demand torrent proxy."
-description: "Exposes TOD status, prepare and playback lease endpoints to Medusa clients."
+overview: "Medusa companion API and fast start for the TOD on-demand torrent proxy."
+description: "Exposes TOD status, prepare and playback lease endpoints, and starts .strm playback without waiting for Jellyfin to probe the whole torrent."
 category: "General"
 owner: "medusa"
 artifacts:

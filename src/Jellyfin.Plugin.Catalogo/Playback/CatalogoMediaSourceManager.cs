@@ -1,0 +1,412 @@
+using System.Text.Json;
+using Jellyfin.Database.Implementations.Entities;
+using Jellyfin.Plugin.Catalogo.Configuration;
+using Jellyfin.Plugin.Catalogo.Services;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.LiveTv;
+using MediaBrowser.Controller.Persistence;
+using MediaBrowser.Model.Dto;
+using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.MediaInfo;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace Jellyfin.Plugin.Catalogo.Playback;
+
+/// <summary>
+/// Wraps Jellyfin's media source manager so Catalogo .strm items skip the
+/// remote ffprobe that otherwise waits for the whole torrent.
+/// </summary>
+public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposable
+{
+    private readonly IMediaSourceManager _inner;
+    private readonly bool _ownsInner;
+    private readonly IServiceProvider _services;
+    private readonly ILogger<CatalogoMediaSourceManager> _logger;
+    private readonly Func<PluginConfiguration?> _configuration;
+    private bool _disposed;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CatalogoMediaSourceManager"/> class.
+    /// </summary>
+    /// <param name="inner">Wrapped media source manager.</param>
+    /// <param name="ownsInner">Whether this instance must dispose the inner manager.</param>
+    /// <param name="services">Service provider.</param>
+    /// <param name="logger">Logger.</param>
+    /// <param name="configuration">Returns the current plugin configuration.</param>
+    public CatalogoMediaSourceManager(
+        IMediaSourceManager inner,
+        bool ownsInner,
+        IServiceProvider services,
+        ILogger<CatalogoMediaSourceManager> logger,
+        Func<PluginConfiguration?> configuration)
+    {
+        _inner = inner;
+        _ownsInner = ownsInner;
+        _services = services;
+        _logger = logger;
+        _configuration = configuration;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<MediaSourceInfo>> GetPlaybackMediaSources(
+        BaseItem item,
+        User user,
+        bool allowMediaProbe,
+        bool enablePathSubstitution,
+        CancellationToken cancellationToken)
+    {
+        if (!allowMediaProbe || !IsCatalogoItem(item))
+        {
+            return await _inner.GetPlaybackMediaSources(
+                item, user, allowMediaProbe, enablePathSubstitution, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        try
+        {
+            var streams = item.GetMediaStreams();
+            var hasVideo = HasVideo(streams);
+            var info = await ResolveMediaInfoAsync(item, prepare: !hasVideo, cancellationToken)
+                .ConfigureAwait(false);
+            IReadOnlyList<MediaStream>? mappedStreams = null;
+            if (!hasVideo && info is not null)
+            {
+                var mapped = CatalogoMediaStreams.FromJson(info.Value);
+                if (mapped.Any(stream => stream.Type == MediaStreamType.Video))
+                {
+                    SaveStreams(item, mapped, info, cancellationToken);
+                    streams = mapped;
+                    mappedStreams = mapped;
+                    _logger.LogInformation(
+                        "Catalogo fast start: saved {Count} streams for {Item}",
+                        mapped.Count,
+                        item.Name);
+                }
+            }
+
+            EnsureShortcut(item);
+
+            if (HasVideo(streams))
+            {
+                var sources = await _inner.GetPlaybackMediaSources(
+                    item, user, false, enablePathSubstitution, cancellationToken)
+                    .ConfigureAwait(false);
+                return Decorate(sources, info, mappedStreams ?? streams);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Catalogo fast start failed for {Item}; using Jellyfin's probe",
+                item.Name);
+        }
+
+        return await _inner.GetPlaybackMediaSources(
+            item, user, allowMediaProbe, enablePathSubstitution, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public void AddParts(IEnumerable<IMediaSourceProvider> providers)
+        => _inner.AddParts(providers);
+
+    /// <inheritdoc />
+    public IReadOnlyList<MediaStream> GetMediaStreams(Guid itemId)
+        => _inner.GetMediaStreams(itemId);
+
+    /// <inheritdoc />
+    public IReadOnlyList<MediaStream> GetMediaStreams(MediaStreamQuery query)
+        => _inner.GetMediaStreams(query);
+
+    /// <inheritdoc />
+    public IReadOnlyList<MediaAttachment> GetMediaAttachments(Guid itemId)
+        => _inner.GetMediaAttachments(itemId);
+
+    /// <inheritdoc />
+    public IReadOnlyList<MediaAttachment> GetMediaAttachments(
+        MediaAttachmentQuery query)
+        => _inner.GetMediaAttachments(query);
+
+    /// <inheritdoc />
+    public IReadOnlyList<MediaSourceInfo> GetStaticMediaSources(
+        BaseItem item,
+        bool enablePathSubstitution,
+        User user)
+        => _inner.GetStaticMediaSources(item, enablePathSubstitution, user);
+
+    /// <inheritdoc />
+    public Task<MediaSourceInfo> GetMediaSource(
+        BaseItem item,
+        string mediaSourceId,
+        string liveStreamId,
+        bool enablePathSubstitution,
+        CancellationToken cancellationToken)
+        => _inner.GetMediaSource(
+            item, mediaSourceId, liveStreamId, enablePathSubstitution, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<LiveStreamResponse> OpenLiveStream(
+        LiveStreamRequest request,
+        CancellationToken cancellationToken)
+        => _inner.OpenLiveStream(request, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<Tuple<LiveStreamResponse, IDirectStreamProvider>> OpenLiveStreamInternal(
+        LiveStreamRequest request,
+        CancellationToken cancellationToken)
+        => _inner.OpenLiveStreamInternal(request, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<MediaSourceInfo> GetLiveStream(
+        string id,
+        CancellationToken cancellationToken)
+        => _inner.GetLiveStream(id, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<Tuple<MediaSourceInfo, IDirectStreamProvider>> GetLiveStreamWithDirectStreamProvider(
+        string id,
+        CancellationToken cancellationToken)
+        => _inner.GetLiveStreamWithDirectStreamProvider(id, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<MediaSourceInfo> GetLiveStreamMediaInfo(
+        string id,
+        CancellationToken cancellationToken)
+        => _inner.GetLiveStreamMediaInfo(id, cancellationToken);
+
+    /// <inheritdoc />
+    public ILiveStream? GetLiveStreamInfo(string id)
+        => _inner.GetLiveStreamInfo(id);
+
+    /// <inheritdoc />
+    public ILiveStream? GetLiveStreamInfoByUniqueId(string uniqueId)
+        => _inner.GetLiveStreamInfoByUniqueId(uniqueId);
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<MediaSourceInfo>> GetRecordingStreamMediaSources(
+        ActiveRecordingInfo info,
+        CancellationToken cancellationToken)
+        => _inner.GetRecordingStreamMediaSources(info, cancellationToken);
+
+    /// <inheritdoc />
+    public Task CloseLiveStream(string id)
+        => _inner.CloseLiveStream(id);
+
+    /// <inheritdoc />
+    public bool SupportsDirectStream(string path, MediaProtocol protocol)
+        => _inner.SupportsDirectStream(path, protocol);
+
+    /// <inheritdoc />
+    public MediaProtocol GetPathProtocol(string path)
+        => _inner.GetPathProtocol(path);
+
+    /// <inheritdoc />
+    public void SetDefaultAudioAndSubtitleStreamIndices(
+        BaseItem item,
+        MediaSourceInfo source,
+        User user)
+        => _inner.SetDefaultAudioAndSubtitleStreamIndices(item, source, user);
+
+    /// <inheritdoc />
+    public Task AddMediaInfoWithProbe(
+        MediaSourceInfo mediaSource,
+        bool isAudio,
+        string cacheKey,
+        bool addProbeDelay,
+        bool isLiveStream,
+        CancellationToken cancellationToken)
+        => _inner.AddMediaInfoWithProbe(
+            mediaSource,
+            isAudio,
+            cacheKey,
+            addProbeDelay,
+            isLiveStream,
+            cancellationToken);
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        if (_ownsInner && _inner is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
+    private static bool HasVideo(IReadOnlyList<MediaStream> streams)
+        => streams.Any(stream => stream.Type == MediaStreamType.Video);
+
+    private static bool IsCatalogoItem(BaseItem? item)
+    {
+        if (item is null || !item.IsShortcut)
+        {
+            return false;
+        }
+
+        var (key, _) = StrmResolver.Parse(item.Path);
+        return !string.IsNullOrWhiteSpace(key);
+    }
+
+    private async Task<JsonElement?> ResolveMediaInfoAsync(
+        BaseItem item,
+        bool prepare,
+        CancellationToken cancellationToken)
+    {
+        var proxy = _services.GetRequiredService<CatalogoProxyClient>();
+        var (key, releaseId) = StrmResolver.Parse(item.Path);
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+
+        int? resolved = releaseId;
+        try
+        {
+            var status = await proxy.GetStatusAsync(key, resolved, cancellationToken)
+                .ConfigureAwait(false);
+            resolved = ReleaseId(status) ?? resolved;
+            if (prepare && (resolved is null || !IsReady(status)))
+            {
+                var runtime = item.RunTimeTicks is long ticks
+                    ? (int)(ticks / TimeSpan.TicksPerSecond)
+                    : (int?)null;
+                try
+                {
+                    await proxy.PrepareAsync(key, resolved, runtime, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (CatalogoProxyException)
+                {
+                    // La reproducción seguirá por el auto-prepare de /play.
+                }
+
+                status = await proxy.GetStatusAsync(key, resolved, cancellationToken)
+                    .ConfigureAwait(false);
+                resolved = ReleaseId(status) ?? resolved;
+            }
+        }
+        catch (CatalogoProxyException)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await proxy.GetMediaInfoAsync(key, resolved, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (CatalogoProxyException ex)
+        {
+            _logger.LogDebug(
+                "Catalogo media-info unavailable for {Key}: {Message}",
+                key,
+                ex.Message);
+            return null;
+        }
+    }
+
+    private void SaveStreams(
+        BaseItem item,
+        IReadOnlyList<MediaStream> streams,
+        JsonElement? info,
+        CancellationToken cancellationToken)
+    {
+        var repository = _services.GetRequiredService<IMediaStreamRepository>();
+        repository.SaveMediaStreams(item.Id, streams, cancellationToken);
+        if (info is not null)
+        {
+            var ticks = CatalogoMediaStreams.DurationTicks(info.Value);
+            if (ticks.HasValue)
+            {
+                item.RunTimeTicks = ticks;
+            }
+        }
+
+        EnsureShortcut(item);
+    }
+
+    private static void EnsureShortcut(BaseItem item)
+    {
+        if (!item.IsShortcut || string.IsNullOrWhiteSpace(item.Path)
+            || !string.IsNullOrWhiteSpace(item.ShortcutPath))
+        {
+            return;
+        }
+
+        var line = File.ReadLines(item.Path)
+            .Select(value => value.Trim())
+            .FirstOrDefault(value => value.Length > 0 && !value.StartsWith('#'));
+        if (!string.IsNullOrWhiteSpace(line))
+        {
+            item.ShortcutPath = line;
+        }
+    }
+
+    private static int? ReleaseId(JsonElement status)
+    {
+        if (!status.TryGetProperty("release_id", out var value)
+            || value.ValueKind != JsonValueKind.Number
+            || !value.TryGetInt32(out var number))
+        {
+            return null;
+        }
+
+        return number;
+    }
+
+    private static bool IsReady(JsonElement status)
+        => status.TryGetProperty("stream_ready", out var value)
+            && value.ValueKind == JsonValueKind.True;
+
+    private static IReadOnlyList<MediaSourceInfo> Decorate(
+        IReadOnlyList<MediaSourceInfo> sources,
+        JsonElement? info,
+        IReadOnlyList<MediaStream>? streams)
+    {
+        if (info is null || sources.Count == 0)
+        {
+            return sources;
+        }
+
+        var container = CatalogoMediaStreams.Container(info.Value);
+        var ticks = CatalogoMediaStreams.DurationTicks(info.Value);
+        var size = CatalogoMediaStreams.MediaSize(info.Value);
+        foreach (var source in sources)
+        {
+            if (!string.IsNullOrWhiteSpace(container))
+            {
+                source.Container = container;
+            }
+
+            if (ticks.HasValue)
+            {
+                source.RunTimeTicks ??= ticks;
+            }
+
+            if (size.HasValue)
+            {
+                // El tamaño del .strm no es el del vídeo; el cliente lo usa
+                // para la barra de progreso y para calcular seeks.
+                source.Size = size;
+            }
+
+            if (streams is not null
+                && (source.MediaStreams is null || source.MediaStreams.Count == 0))
+            {
+                source.MediaStreams = streams.ToList();
+            }
+        }
+
+        return sources;
+    }
+}

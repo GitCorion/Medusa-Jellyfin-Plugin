@@ -2,8 +2,8 @@
   {
     "guid": "50c67d89-41de-4a95-84e2-4511775d4965",
     "name": "Medusa",
-    "overview": "Medusa companion API for the TOD on-demand torrent proxy.",
-    "description": "Exposes TOD status, prepare and playback lease endpoints to Medusa clients.",
+    "overview": "Medusa companion API and fast start for the TOD on-demand torrent proxy.",
+    "description": "Exposes TOD status, prepare and playback lease endpoints, and starts .strm playback without waiting for Jellyfin to probe the whole torrent.",
     "owner": "medusa",
     "category": "General",
     "imageUrl": "",

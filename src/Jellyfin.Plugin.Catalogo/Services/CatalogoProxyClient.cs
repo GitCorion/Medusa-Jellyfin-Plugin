@@ -73,6 +73,23 @@ public class CatalogoProxyClient
     }
 
     /// <summary>
+    /// Gets the playback metadata (codecs, resolution, audio) for a catalog key.
+    /// </summary>
+    public Task<JsonElement> GetMediaInfoAsync(
+        string key,
+        int? releaseId,
+        CancellationToken cancellationToken)
+    {
+        var url = $"{BaseUrl}/media-info?key={Uri.EscapeDataString(key)}";
+        if (releaseId is not null)
+        {
+            url += $"&release={releaseId.Value}";
+        }
+
+        return SendAsync(HttpMethod.Get, url, cancellationToken);
+    }
+
+    /// <summary>
     /// Starts a download without streaming it.
     /// </summary>
     public Task<JsonElement> PrepareAsync(
