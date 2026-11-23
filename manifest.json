@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.1.1.0",
+        "changelog": "Release 1.1.1.0.",
+        "targetAbi": "12.4.0.0",
+        "sourceUrl": "https://github.com/GitCorion/Medusa-Jellyfin-Plugin/releases/download/v1.1.1.0/catalogo_1.1.1.0.zip",
+        "checksum": "1cac76895acb23e3b4a770dd07d7474998ad0769febb95b355830fe8ada5464f",
+        "timestamp": "2026-11-23T21:18:36Z"
+      },
+      {
         "version": "1.1.0.0",
         "changelog": "Release 1.1.0.0.",
         "targetAbi": "12.4.0.0",
