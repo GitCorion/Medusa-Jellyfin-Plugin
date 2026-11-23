@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/GitCorion/Medusa-Jellyfin-Plugin/main/assets/medusa-wordmark.png",
     "versions": [
       {
+        "version": "1.1.2.0",
+        "changelog": "Release 1.1.2.0.",
+        "targetAbi": "12.4.0.0",
+        "sourceUrl": "https://github.com/GitCorion/Medusa-Jellyfin-Plugin/releases/download/v1.1.2.0/catalogo_1.1.2.0.zip",
+        "checksum": "21768a5c13dc56b7cf396c0d02430b8dc9ee6147cc489ea779744ca5ed388f09",
+        "timestamp": "2026-11-23T21:23:23Z"
+      },
+      {
         "version": "1.1.1.0",
         "changelog": "Release 1.1.1.0.",
         "targetAbi": "12.4.0.0",
