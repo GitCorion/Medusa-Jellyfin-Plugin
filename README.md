@@ -8,6 +8,21 @@ title is ready to play.
 The plugin does **not** download torrents itself. It asks a local Catalogo proxy
 for the status and, optionally, to start a download.
 
+## The Medusa stack
+
+This plugin is the bridge between three complementary repositories:
+
+| Repository | Role |
+|---|---|
+| [Medusa](https://github.com/GitCorion/Medusa) | Native Android TV client. It plays through Jellyfin. |
+| **Medusa-Jellyfin-Plugin** (this repository) | Jellyfin companion API. Exposes `/Medusa/Status`, `/Prepare` and `/Lease`, and maps a Jellyfin `.strm` item to a TOD key. |
+| [TOD](https://github.com/GitCorion/TOD) | Catalog, sources, downloads, `.strm` generation and range streaming. |
+
+Medusa never talks to TOD directly. It talks to Jellyfin; this plugin translates
+that conversation, so the client can show progress, prepare a cold source and
+follow source switches without knowing how the catalog works.
+
+
 ## Requirements
 
 - Jellyfin **12.4+**
