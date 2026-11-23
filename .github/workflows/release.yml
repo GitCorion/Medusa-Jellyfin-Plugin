@@ -29,17 +29,18 @@ jobs:
           zip -j "../medusa_${VERSION}.zip" Jellyfin.Plugin.Catalogo.dll
           cd ..
           sha256sum "medusa_${VERSION}.zip" > "medusa_${VERSION}.sha256"
+          md5sum "medusa_${VERSION}.zip" > "medusa_${VERSION}.md5"
       - name: Actualizar manifest
         env:
           VERSION: ${{ github.ref_name }}
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
-          SHA=$(cut -d' ' -f1 "artifacts/medusa_${VERSION}.sha256")
+          MD5=$(cut -d' ' -f1 "artifacts/medusa_${VERSION}.md5")
           git fetch origin main
           git checkout main
           git pull --ff-only origin main
-          python3 - "$TAG" "$VERSION" "$SHA" <<'PY'
+          python3 - "$TAG" "$VERSION" "$MD5" <<'PY'
           import datetime
           import json
           import os
@@ -85,3 +86,4 @@ jobs:
           files: |
             artifacts/*.zip
             artifacts/*.sha256
+            artifacts/*.md5

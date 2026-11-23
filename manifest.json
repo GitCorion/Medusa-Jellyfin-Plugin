@@ -21,7 +21,7 @@
         "changelog": "Release 1.1.2.0.",
         "targetAbi": "12.4.0.0",
         "sourceUrl": "https://github.com/GitCorion/Medusa-Jellyfin-Plugin/releases/download/v1.1.2.0/catalogo_1.1.2.0.zip",
-        "checksum": "21768a5c13dc56b7cf396c0d02430b8dc9ee6147cc489ea779744ca5ed388f09",
+        "checksum": "9e102fb72b49babed8f85c4cb0d541ab",
         "timestamp": "2026-11-23T21:23:23Z"
       },
       {
@@ -29,7 +29,7 @@
         "changelog": "Release 1.1.1.0.",
         "targetAbi": "12.4.0.0",
         "sourceUrl": "https://github.com/GitCorion/Medusa-Jellyfin-Plugin/releases/download/v1.1.1.0/catalogo_1.1.1.0.zip",
-        "checksum": "1cac76895acb23e3b4a770dd07d7474998ad0769febb95b355830fe8ada5464f",
+        "checksum": "e9eb0b45ae113f3cf7589a33fca05149",
         "timestamp": "2026-11-23T21:18:36Z"
       },
       {
@@ -37,7 +37,7 @@
         "changelog": "Release 1.1.0.0.",
         "targetAbi": "12.4.0.0",
         "sourceUrl": "https://github.com/GitCorion/Medusa-Jellyfin-Plugin/releases/download/v1.1.0.0/catalogo_1.1.0.0.zip",
-        "checksum": "9dd78df531801c8fc60d23ab2ab3ce25e650da6be91d0110efe983a22ed0d618",
+        "checksum": "e679e29cff69d3dce0672fd27a490958",
         "timestamp": "2026-11-23T21:08:47Z"
       },
       {
@@ -45,7 +45,7 @@
         "changelog": "Release 1.0.0.0.",
         "targetAbi": "12.4.0.0",
         "sourceUrl": "https://github.com/GitCorion/Medusa-Jellyfin-Plugin/releases/download/v1.0.0.0/catalogo_1.0.0.0.zip",
-        "checksum": "925e13d23c298fc3fd14191faac228e4b02ca522d695eb26cc2b551cd7fcb111",
+        "checksum": "4676b4d71a2bf29e0bcb5941f43cd678",
         "timestamp": "2026-11-23T11:58:13Z"
       }
     ]
