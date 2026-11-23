@@ -25,7 +25,7 @@ Add this repository URL in Jellyfin:
 
 ```
 Dashboard → Plugins → Repositories → +
-https://raw.githubusercontent.com/GitCorion/jellyfin-plugin-catalogo/main/manifest.json
+https://raw.githubusercontent.com/GitCorion/Medusa-Jellyfin-Plugin/main/manifest.json
 ```
 
 Then install **Catalogo** from the plugin catalog and restart Jellyfin.
