@@ -47,6 +47,8 @@ public class CatalogoController : ControllerBase
         {
             api_version = 1,
             plugin_version = version,
+            name = "Medusa",
+            legacy_name = "Catalogo",
             features = new[] { "status", "prepare", "lease", "media-info", "fast-start" },
             proxy_configured = !string.IsNullOrWhiteSpace(
                 Plugin.Instance?.Configuration.ProxyUrl)
