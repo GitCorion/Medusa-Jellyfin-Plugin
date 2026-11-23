@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
@@ -27,6 +29,56 @@ jobs:
           zip -j "../catalogo_${VERSION}.zip" Jellyfin.Plugin.Catalogo.dll
           cd ..
           sha256sum "catalogo_${VERSION}.zip" > "catalogo_${VERSION}.sha256"
+      - name: Actualizar manifest
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          SHA=$(cut -d' ' -f1 "artifacts/catalogo_${VERSION}.sha256")
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+          python3 - "$TAG" "$VERSION" "$SHA" <<'PY'
+          import datetime
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          tag, version, checksum = sys.argv[1:4]
+          path = Path("manifest.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          entry = data[0]
+          versions = [
+              item for item in entry.get("versions", [])
+              if item.get("version") != version
+          ]
+          versions.insert(0, {
+              "version": version,
+              "changelog": f"Release {version}.",
+              "targetAbi": "12.4.0.0",
+              "sourceUrl": (
+                  f"https://github.com/{os.environ['GITHUB_REPOSITORY']}"
+                  f"/releases/download/{tag}/catalogo_{version}.zip"
+              ),
+              "checksum": checksum,
+              "timestamp": datetime.datetime.now(
+                  datetime.timezone.utc
+              ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+          })
+          entry["versions"] = versions
+          path.write_text(
+              json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "Actualiza manifest para ${VERSION}" || exit 0
+          git push origin main
+
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
