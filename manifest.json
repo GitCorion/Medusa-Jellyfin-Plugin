@@ -2,8 +2,8 @@
   {
     "guid": "50c67d89-41de-4a95-84e2-4511775d4965",
     "name": "Medusa",
-    "overview": "Medusa companion API for the Catalogo on-demand torrent proxy.",
-    "description": "Exposes Catalogo status, prepare and playback lease endpoints to Medusa clients.",
+    "overview": "Medusa companion API for the TOD on-demand torrent proxy.",
+    "description": "Exposes TOD status, prepare and playback lease endpoints to Medusa clients.",
     "owner": "medusa",
     "category": "General",
     "imageUrl": "",
@@ -12,7 +12,7 @@
         "version": "1.0.0.0",
         "changelog": "Initial release.",
         "targetAbi": "12.4.0.0",
-        "sourceUrl": "https://github.com/OWNER/jellyfin-plugin-catalogo/releases/download/v1.0.0.0/catalogo_1.0.0.0.zip",
+        "sourceUrl": "https://github.com/GitCorion/jellyfin-plugin-catalogo/releases/download/v1.0.0.0/catalogo_1.0.0.0.zip",
         "checksum": "af29ebfdd2e62e03c9ff100102b49b6b12ecd6f10f4ea6f9df94732078bcfd94",
         "timestamp": "2026-11-19T10:26:00Z"
       }

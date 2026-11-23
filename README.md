@@ -1,7 +1,7 @@
-# Catalogo — Jellyfin companion plugin
+# Medusa — Jellyfin companion plugin
 
-Companion plugin for the [Catalogo](https://github.com/OWNER/catalogo) on-demand
-torrent proxy. It exposes the proxy state through Jellyfin so a Jellyfin client
+Companion plugin for the [TOD](https://github.com/GitCorion/TOD) on-demand
+torrent proxy, used by the Medusa player. It exposes the proxy state through Jellyfin so a Jellyfin client
 (for example a mobile APK) can show download progress, speed, ETA and when a
 title is ready to play.
 
@@ -25,7 +25,7 @@ Add this repository URL in Jellyfin:
 
 ```
 Dashboard → Plugins → Repositories → +
-https://raw.githubusercontent.com/OWNER/jellyfin-plugin-catalogo/main/manifest.json
+https://raw.githubusercontent.com/GitCorion/jellyfin-plugin-catalogo/main/manifest.json
 ```
 
 Then install **Catalogo** from the plugin catalog and restart Jellyfin.
