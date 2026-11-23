@@ -1,9 +1,17 @@
 # Medusa — Jellyfin companion plugin
 
+<p align="center"><img src="assets/medusa-icon.png" width="96" alt="Medusa"></p>
+
 Companion plugin for the [TOD](https://github.com/GitCorion/TOD) on-demand
 torrent proxy, used by the Medusa player. It exposes the proxy state through Jellyfin so a Jellyfin client
 (for example a mobile APK) can show download progress, speed, ETA and when a
 title is ready to play.
+
+> **Compatibilidad con el nombre.** El plugin conserva el GUID y las rutas
+> `/Catalogo/...` que usa el cliente Medusa. Desde 1.1.0.0 aparece en Jellyfin
+> como **Medusa**; el cliente lo detecta por `/Catalogo/Capabilities`, así que
+> el cambio de nombre no rompe la app. El archivo de configuración, el
+> namespace y el assembly siguen siendo `Jellyfin.Plugin.Catalogo`.
 
 The plugin does **not** download torrents itself. It asks a local Catalogo proxy
 for the status and, optionally, to start a download.
