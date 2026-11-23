@@ -7,13 +7,10 @@ torrent proxy, used by the Medusa player. It exposes the proxy state through Jel
 (for example a mobile APK) can show download progress, speed, ETA and when a
 title is ready to play.
 
-> **Compatibilidad con el nombre.** El plugin conserva el GUID y las rutas
-> `/Catalogo/...` que usa el cliente Medusa. Desde 1.1.0.0 aparece en Jellyfin
-> como **Medusa**; el cliente lo detecta por `/Catalogo/Capabilities`, así que
-> el cambio de nombre no rompe la app. El archivo de configuración, el
-> namespace y el assembly siguen siendo `Jellyfin.Plugin.Catalogo`.
+> **Compatibilidad.** El plugin conserva el GUID y la configuración. La app
+> Medusa lo detecta por `GET /Medusa/Capabilities`.
 
-The plugin does **not** download torrents itself. It asks a local Catalogo proxy
+The plugin does **not** download torrents itself. It asks the local TOD proxy
 for the status and, optionally, to start a download.
 
 ## The Medusa stack
@@ -35,7 +32,7 @@ follow source switches without knowing how the catalog works.
 
 - Jellyfin **12.4+**
 - `.NET 10` runtime (included with Jellyfin 12.4)
-- Catalogo proxy reachable from the Jellyfin server, normally
+- TOD proxy reachable from the Jellyfin server, normally
   `http://127.0.0.1:8773`
 - The proxy must expose `/status` and `/prepare`
 
@@ -51,15 +48,14 @@ Dashboard → Plugins → Repositories → +
 https://raw.githubusercontent.com/GitCorion/Medusa-Jellyfin-Plugin/main/manifest.json
 ```
 
-Then install **Medusa** (formerly Catalogo) from the plugin catalog and
+Then install **Medusa** from the plugin catalog and
 restart Jellyfin.
 
 Jellyfin checks this repository with the **Update Plugins** scheduled task
 (Dashboard → Scheduled Tasks → Update Plugins). Keep the repository URL added
 and new versions will be installed automatically.
 
-For manual installation, stop Jellyfin first, copy
-`Jellyfin.Plugin.Catalogo.dll` into:
+For manual installation, stop Jellyfin first, copy the DLL from the zip into:
 
 ```
 <Jellyfin data>/plugins/Medusa_<version>/
@@ -89,7 +85,7 @@ All endpoints are served by Jellyfin, not by the proxy.
 ### Capabilities
 
 ```http
-GET /Catalogo/Capabilities
+GET /Medusa/Capabilities
 ```
 
 ```json
@@ -107,11 +103,11 @@ This endpoint is anonymous so a client can detect the plugin before playback.
 ### Status
 
 ```http
-GET /Catalogo/Status/{itemId}
-GET /Catalogo/Status/{itemId}?release=109
+GET /Medusa/Status/{itemId}
+GET /Medusa/Status/{itemId}?release=109
 ```
 
-The plugin reads the item's `.strm`, extracts the Catalogo `key`/`release` and
+The plugin reads the item's `.strm`, extracts the TOD `key`/`release` and
 returns the proxy status:
 
 ```json
@@ -131,7 +127,7 @@ returns the proxy status:
 }
 ```
 
-For non-Catalogo items:
+For non-TOD items:
 
 ```json
 { "is_catalog": false, "item_id": "..." }
@@ -140,7 +136,7 @@ For non-Catalogo items:
 ### Prepare
 
 ```http
-POST /Catalogo/Prepare/{itemId}
+POST /Medusa/Prepare/{itemId}
 ```
 
 Starts the on-demand download without returning video. The client should then
@@ -163,9 +159,9 @@ poll `Status` until `stream_ready` is true and play through Jellyfin normally.
 
 1. `POST /Items/{itemId}/PlaybackInfo`.
 2. Read `MediaSources[].Path`.
-3. If it ends in `.strm`, call `GET /Catalogo/Status/{itemId}`.
+3. If it ends in `.strm`, call `GET /Medusa/Status/{itemId}`.
 4. If `is_catalog` is true and `stream_ready` is false:
-   - call `POST /Catalogo/Prepare/{itemId}`;
+   - call `POST /Medusa/Prepare/{itemId}`;
    - show a progress/buffer overlay;
    - poll `Status` every 1–2 seconds.
 5. When `stream_ready` is true, play using Jellyfin's normal playback.
@@ -182,7 +178,7 @@ dotnet build src/Jellyfin.Plugin.Catalogo/Jellyfin.Plugin.Catalogo.csproj -c Rel
 dotnet test tests/Jellyfin.Plugin.Catalogo.Tests/Jellyfin.Plugin.Catalogo.Tests.csproj -c Release
 ```
 
-The build produces `Jellyfin.Plugin.Catalogo.dll`.
+The build produces the plugin DLL.
 
 ## Security
 

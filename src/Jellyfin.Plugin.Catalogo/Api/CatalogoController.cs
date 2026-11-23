@@ -8,10 +8,12 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.Catalogo.Api;
 
 /// <summary>
-/// Companion API for Catalogo-aware Jellyfin clients.
+/// Companion API for Medusa-aware Jellyfin clients.
 /// </summary>
 [ApiController]
 [Authorize]
+// Alias legacy para la app estable 2.4.1; se puede retirar cuando la
+// estable use /Medusa. La beta 2.4.2-beta.3+ ya usa /Medusa.
 [Route("Catalogo")]
 [Route("Medusa")]
 [Produces("application/json")]
@@ -48,7 +50,6 @@ public class CatalogoController : ControllerBase
             api_version = 1,
             plugin_version = version,
             name = "Medusa",
-            legacy_name = "Catalogo",
             features = new[] { "status", "prepare", "lease", "media-info", "fast-start" },
             proxy_configured = !string.IsNullOrWhiteSpace(
                 Plugin.Instance?.Configuration.ProxyUrl)
@@ -87,7 +88,7 @@ public class CatalogoController : ControllerBase
         }
         catch (CatalogoProxyException ex)
         {
-            _logger.LogWarning(ex, "Catalogo proxy status failed");
+            _logger.LogWarning(ex, "Medusa proxy status failed");
             return StatusCode(
                 503,
                 new
@@ -141,7 +142,7 @@ public class CatalogoController : ControllerBase
         }
         catch (CatalogoProxyException ex)
         {
-            _logger.LogWarning(ex, "Catalogo proxy prepare failed");
+            _logger.LogWarning(ex, "Medusa proxy prepare failed");
             return StatusCode(
                 503,
                 new
@@ -186,7 +187,7 @@ public class CatalogoController : ControllerBase
         }
         catch (CatalogoProxyException ex)
         {
-            _logger.LogWarning(ex, "Catalogo lease failed");
+            _logger.LogWarning(ex, "Medusa lease failed");
             return StatusCode(
                 503,
                 new

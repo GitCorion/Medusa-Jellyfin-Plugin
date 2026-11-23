@@ -7,7 +7,7 @@ using MediaBrowser.Model.Serialization;
 namespace Jellyfin.Plugin.Catalogo;
 
 /// <summary>
-/// Medusa companion plugin: exposes the Catalogo proxy state to Medusa clients.
+/// Medusa companion plugin: exposes the TOD proxy state to Medusa clients.
 /// </summary>
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
@@ -38,7 +38,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     /// <inheritdoc />
     public override string Description =>
-        "Medusa companion API for the Catalogo on-demand torrent proxy.";
+        "Medusa companion API for the TOD on-demand torrent proxy.";
 
     /// <inheritdoc />
     public IEnumerable<PluginPageInfo> GetPages()
@@ -47,7 +47,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         {
             new PluginPageInfo
             {
-                Name = "catalogo",
+                Name = "medusa",
                 EmbeddedResourcePath =
                     "Jellyfin.Plugin.Catalogo.Configuration.configPage.html"
             }

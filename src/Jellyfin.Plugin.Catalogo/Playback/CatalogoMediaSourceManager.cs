@@ -80,7 +80,7 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
                     streams = mapped;
                     mappedStreams = mapped;
                     _logger.LogInformation(
-                        "Catalogo fast start: saved {Count} streams for {Item}",
+                        "Medusa fast start: saved {Count} streams for {Item}",
                         mapped.Count,
                         item.Name);
                 }
@@ -100,7 +100,7 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         {
             _logger.LogWarning(
                 ex,
-                "Catalogo fast start failed for {Item}; using Jellyfin's probe",
+                "Medusa fast start failed for {Item}; using Jellyfin's probe",
                 item.Name);
         }
 
@@ -308,7 +308,7 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         catch (CatalogoProxyException ex)
         {
             _logger.LogDebug(
-                "Catalogo media-info unavailable for {Key}: {Message}",
+                "Medusa media-info unavailable for {Key}: {Message}",
                 key,
                 ex.Message);
             return null;

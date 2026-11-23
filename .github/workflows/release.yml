@@ -26,16 +26,16 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           cd artifacts/publish
-          zip -j "../catalogo_${VERSION}.zip" Jellyfin.Plugin.Catalogo.dll
+          zip -j "../medusa_${VERSION}.zip" Jellyfin.Plugin.Catalogo.dll
           cd ..
-          sha256sum "catalogo_${VERSION}.zip" > "catalogo_${VERSION}.sha256"
+          sha256sum "medusa_${VERSION}.zip" > "medusa_${VERSION}.sha256"
       - name: Actualizar manifest
         env:
           VERSION: ${{ github.ref_name }}
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
-          SHA=$(cut -d' ' -f1 "artifacts/catalogo_${VERSION}.sha256")
+          SHA=$(cut -d' ' -f1 "artifacts/medusa_${VERSION}.sha256")
           git fetch origin main
           git checkout main
           git pull --ff-only origin main
@@ -60,7 +60,7 @@ jobs:
               "targetAbi": "12.4.0.0",
               "sourceUrl": (
                   f"https://github.com/{os.environ['GITHUB_REPOSITORY']}"
-                  f"/releases/download/{tag}/catalogo_{version}.zip"
+                  f"/releases/download/{tag}/medusa_{version}.zip"
               ),
               "checksum": checksum,
               "timestamp": datetime.datetime.now(

@@ -4,7 +4,7 @@
     <title>Medusa</title>
 </head>
 <body>
-<div id="CatalogoConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button">
+<div id="MedusaConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button">
     <div data-role="content">
         <div class="content-primary">
             <div style="margin:0 0 1.5em 0;">
@@ -13,12 +13,12 @@
                      style="display:block;width:100%;max-width:280px;height:auto;" />
                 <div class="fieldDescription" style="margin-top:.5em;">Jellyfin ↔ TOD · catálogo bajo demanda</div>
             </div>
-            <form id="CatalogoConfigForm">
+            <form id="MedusaConfigForm">
                 <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="ProxyUrl">Medusa / Catalogo proxy URL</label>
+                    <label class="inputLabel inputLabelUnfocused" for="ProxyUrl">TOD proxy URL</label>
                     <input id="ProxyUrl" name="ProxyUrl" type="url" is="emby-input" />
                     <div class="fieldDescription">
-                        Local URL of the Catalogo proxy used by Medusa, for example http://127.0.0.1:8773.
+                        Local URL of the TOD proxy used by Medusa, for example http://127.0.0.1:8773.
                     </div>
                 </div>
                 <div class="inputContainer">
@@ -37,8 +37,8 @@
 <script type="text/javascript">
     (function () {
         var pluginId = '50c67d89-41de-4a95-84e2-4511775d4965';
-        var page = document.querySelector('#CatalogoConfigPage');
-        var form = document.querySelector('#CatalogoConfigForm');
+        var page = document.querySelector('#MedusaConfigPage');
+        var form = document.querySelector('#MedusaConfigForm');
 
         page.addEventListener('pageshow', function () {
             ApiClient.getPluginConfiguration(pluginId).then(function (config) {
