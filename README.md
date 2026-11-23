@@ -51,20 +51,29 @@ Dashboard → Plugins → Repositories → +
 https://raw.githubusercontent.com/GitCorion/Medusa-Jellyfin-Plugin/main/manifest.json
 ```
 
-Then install **Catalogo** from the plugin catalog and restart Jellyfin.
+Then install **Medusa** (formerly Catalogo) from the plugin catalog and
+restart Jellyfin.
 
-For manual installation, copy `Jellyfin.Plugin.Catalogo.dll` into:
+Jellyfin checks this repository with the **Update Plugins** scheduled task
+(Dashboard → Scheduled Tasks → Update Plugins). Keep the repository URL added
+and new versions will be installed automatically.
+
+For manual installation, stop Jellyfin first, copy
+`Jellyfin.Plugin.Catalogo.dll` into:
 
 ```
-<Jellyfin data>/plugins/Catalogo_1.0.0.0/
+<Jellyfin data>/plugins/Medusa_<version>/
 ```
+
+and start Jellyfin again. Do not copy the DLL over a running server: it can
+produce `BadImageFormatException`.
 
 ## Configure
 
 Go to:
 
 ```
-Dashboard → Plugins → Catalogo
+Dashboard → Plugins → Medusa
 ```
 
 Set the proxy URL, normally:
