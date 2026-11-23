@@ -1,6 +1,6 @@
 # Medusa — Jellyfin companion plugin
 
-<p align="center"><img src="assets/medusa-icon.png" width="96" alt="Medusa"></p>
+<p align="center"><img src="assets/medusa-wordmark.png" width="320" alt="Medusa"></p>
 
 Companion plugin for the [TOD](https://github.com/GitCorion/TOD) on-demand
 torrent proxy, used by the Medusa player. It exposes the proxy state through Jellyfin so a Jellyfin client
