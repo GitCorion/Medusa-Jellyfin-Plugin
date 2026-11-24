@@ -25,6 +25,14 @@
                     <label class="inputLabel inputLabelUnfocused" for="TimeoutSeconds">Timeout (seconds)</label>
                     <input id="TimeoutSeconds" name="TimeoutSeconds" type="number" min="2" max="120" is="emby-input" />
                 </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="PrepareTimeoutSeconds">Prepare timeout (seconds)</label>
+                    <input id="PrepareTimeoutSeconds" name="PrepareTimeoutSeconds" type="number" min="5" max="120" is="emby-input" />
+                    <div class="fieldDescription">
+                        Starting a cold torrent can take longer than a status
+                        request. This timeout only applies to Prepare.
+                    </div>
+                </div>
                 <div class="checkboxContainer checkboxContainer-withDescription">
                     <label class="emby-checkbox-label">
                         <input id="NativeMode" name="NativeMode" type="checkbox" is="emby-checkbox" />
@@ -66,6 +74,8 @@
                     config.ProxyUrl || 'http://127.0.0.1:8773';
                 document.querySelector('#TimeoutSeconds').value =
                     config.TimeoutSeconds || 15;
+                document.querySelector('#PrepareTimeoutSeconds').value =
+                    config.PrepareTimeoutSeconds || 40;
                 document.querySelector('#NativeMode').checked =
                     config.NativeMode === true;
                 document.querySelector('#NativePrebufferSeconds').value =
@@ -79,6 +89,9 @@
                 config.ProxyUrl = document.querySelector('#ProxyUrl').value.trim();
                 config.TimeoutSeconds =
                     parseInt(document.querySelector('#TimeoutSeconds').value, 10) || 15;
+                config.PrepareTimeoutSeconds =
+                    Math.max(5, Math.min(120,
+                        parseInt(document.querySelector('#PrepareTimeoutSeconds').value, 10) || 40));
                 config.NativeMode =
                     document.querySelector('#NativeMode').checked === true;
                 config.NativePrebufferSeconds =

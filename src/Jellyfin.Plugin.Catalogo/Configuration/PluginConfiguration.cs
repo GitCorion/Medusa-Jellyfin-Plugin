@@ -18,6 +18,13 @@ public class PluginConfiguration : BasePluginConfiguration
     public int TimeoutSeconds { get; set; } = 15;
 
     /// <summary>
+    /// Gets or sets the timeout for starting a cold prepare. TOD may need to
+    /// fetch torrent metadata before answering, so it is longer than the
+    /// status timeout. Medusa status calls keep using <see cref="TimeoutSeconds"/>.
+    /// </summary>
+    public int PrepareTimeoutSeconds { get; set; } = 40;
+
+    /// <summary>
     /// Gets or sets a value indicating whether Jellyfin clients that are not
     /// Medusa may prepare a cold catalog item from PlaybackInfo. Medusa always
     /// keeps its own flow. Disabled by default.

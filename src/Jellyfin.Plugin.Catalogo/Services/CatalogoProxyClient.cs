@@ -55,6 +55,9 @@ public class CatalogoProxyClient
     private static int TimeoutSeconds =>
         Math.Max(2, Plugin.Instance?.Configuration.TimeoutSeconds ?? 15);
 
+    private static int PrepareTimeoutSeconds =>
+        Math.Max(5, Plugin.Instance?.Configuration.PrepareTimeoutSeconds ?? 40);
+
     /// <summary>
     /// Gets the status for a catalog key.
     /// </summary>
@@ -108,7 +111,8 @@ public class CatalogoProxyClient
             url += $"&runtime={runtimeSeconds.Value}";
         }
 
-        return SendAsync(HttpMethod.Post, url, cancellationToken);
+        return SendAsync(
+            HttpMethod.Post, url, cancellationToken, PrepareTimeoutSeconds);
     }
 
     /// <summary>
@@ -147,11 +151,13 @@ public class CatalogoProxyClient
     private async Task<JsonElement> SendAsync(
         HttpMethod method,
         string url,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? timeoutSeconds = null)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(TimeoutSeconds));
+        timeout.CancelAfter(
+            TimeSpan.FromSeconds(timeoutSeconds ?? TimeoutSeconds));
 
         using var request = new HttpRequestMessage(method, url);
         request.Headers.Accept.ParseAdd("application/json");

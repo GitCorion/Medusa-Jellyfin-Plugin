@@ -84,7 +84,9 @@ Off by default. When enabled, Jellyfin clients that are not Medusa can start a
 cold catalog prepare from `PlaybackInfo` and, optionally, wait up to 30
 seconds (`Native prebuffer`) before returning the media sources. Medusa keeps
 its own preparation flow and is detected from its Jellyfin client headers.
-Keep it off until you have tested your other Jellyfin clients.
+`Prepare timeout` is separate from the normal status timeout because TOD may
+need longer to fetch torrent metadata. Keep it off until you have tested your
+other Jellyfin clients.
 
 ## API
 

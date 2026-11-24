@@ -203,6 +203,8 @@ Estado actual:
 - `NativeMode` ya existe en la configuración y está apagado por defecto.
 - `NativePrebufferSeconds` existe, por defecto `0` y acotado a `0-30`. Solo
   espera en clientes que no son Medusa y con un estado que puede avanzar.
+- `PrepareTimeoutSeconds` existe, por defecto `40`, separado del timeout de
+  `Status`. Medusa sigue usando el timeout normal para sus consultas.
 - `Capabilities` publica `native_mode` como campo aditivo; Medusa lo ignora.
 - La preparación server-side solo se activa con el flag y cuando el cliente
   no es Medusa. Sin contexto HTTP se aplica compatibilidad.

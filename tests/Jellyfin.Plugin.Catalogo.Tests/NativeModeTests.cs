@@ -14,6 +14,8 @@ public class NativeModeTests
         var configuration = new PluginConfiguration();
         Assert.False(configuration.NativeMode);
         Assert.Equal(0, configuration.NativePrebufferSeconds);
+        Assert.Equal(15, configuration.TimeoutSeconds);
+        Assert.Equal(40, configuration.PrepareTimeoutSeconds);
     }
 
     [Theory]
