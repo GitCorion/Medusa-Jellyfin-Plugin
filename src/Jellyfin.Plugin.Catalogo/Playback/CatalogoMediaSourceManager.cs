@@ -68,7 +68,8 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         {
             var streams = item.GetMediaStreams();
             var hasVideo = HasVideo(streams);
-            var info = await ResolveMediaInfoAsync(item, prepare: !hasVideo, cancellationToken)
+            var (info, complete) = await ResolveMediaInfoAsync(
+                    item, prepare: !hasVideo, cancellationToken)
                 .ConfigureAwait(false);
             IReadOnlyList<MediaStream>? mappedStreams = null;
             if (!hasVideo && info is not null)
@@ -93,7 +94,11 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
                 var sources = await _inner.GetPlaybackMediaSources(
                     item, user, false, enablePathSubstitution, cancellationToken)
                     .ConfigureAwait(false);
-                return Decorate(sources, info, mappedStreams ?? streams);
+                Decorate(sources, info, mappedStreams ?? streams);
+                // Con la descarga a medias, Jellyfin extrae los subtítulos de
+                // texto con ffmpeg leyendo el fichero entero: se queda colgado
+                // y reintenta. Se ocultan hasta que TOD tenga el fichero entero.
+                return complete ? sources : HideTextSubtitles(sources);
             }
         }
         catch (Exception ex)
@@ -257,7 +262,7 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         return !string.IsNullOrWhiteSpace(key);
     }
 
-    private async Task<JsonElement?> ResolveMediaInfoAsync(
+    private async Task<(JsonElement? Info, bool Complete)> ResolveMediaInfoAsync(
         BaseItem item,
         bool prepare,
         CancellationToken cancellationToken)
@@ -266,15 +271,17 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         var (key, releaseId) = StrmResolver.Parse(item.Path);
         if (string.IsNullOrWhiteSpace(key))
         {
-            return null;
+            return (null, true);
         }
 
+        var complete = true;
         int? resolved = releaseId;
         try
         {
             var status = await proxy.GetStatusAsync(key, resolved, cancellationToken)
                 .ConfigureAwait(false);
             resolved = ReleaseId(status) ?? resolved;
+            complete = IsComplete(status);
             if (prepare && (resolved is null || !IsReady(status)))
             {
                 var runtime = item.RunTimeTicks is long ticks
@@ -293,17 +300,19 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
                 status = await proxy.GetStatusAsync(key, resolved, cancellationToken)
                     .ConfigureAwait(false);
                 resolved = ReleaseId(status) ?? resolved;
+                complete = IsComplete(status);
             }
         }
         catch (CatalogoProxyException)
         {
-            return null;
+            return (null, true);
         }
 
         try
         {
-            return await proxy.GetMediaInfoAsync(key, resolved, cancellationToken)
+            var info = await proxy.GetMediaInfoAsync(key, resolved, cancellationToken)
                 .ConfigureAwait(false);
+            return (info, complete);
         }
         catch (CatalogoProxyException ex)
         {
@@ -311,8 +320,69 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
                 "Medusa media-info unavailable for {Key}: {Message}",
                 key,
                 ex.Message);
-            return null;
+            return (null, true);
         }
+    }
+
+    /// <summary>
+    /// Indica si TOD tiene el fichero completo. Sin datos se asume que sí,
+    /// para no ocultar subtítulos por un fallo puntual del proxy.
+    /// </summary>
+    /// <param name="status">Respuesta de /status de TOD.</param>
+    /// <returns><c>true</c> si el fichero está completo.</returns>
+    public static bool IsComplete(JsonElement status)
+    {
+        if (status.ValueKind != JsonValueKind.Object)
+        {
+            return true;
+        }
+
+        if (status.TryGetProperty("progress", out var progress)
+            && progress.ValueKind == JsonValueKind.Number)
+        {
+            return progress.GetDouble() >= 0.999;
+        }
+
+        if (status.TryGetProperty("state", out var state)
+            && state.ValueKind == JsonValueKind.String)
+        {
+            var value = state.GetString();
+            return value is "SEEDING" or "AVAILABLE"
+                or "SEEDING_LOCAL" or "AVAILABLE_LOCAL";
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Quita los subtítulos de texto embebidos de las fuentes. Jellyfin los
+    /// extrae con ffmpeg leyendo el fichero entero; con un torrent a medias
+    /// esa extracción se queda esperando piezas y reintenta en bucle.
+    /// </summary>
+    /// <param name="sources">Fuentes de reproducción.</param>
+    /// <returns>Las mismas fuentes sin subtítulos de texto.</returns>
+    public static IReadOnlyList<MediaSourceInfo> HideTextSubtitles(
+        IReadOnlyList<MediaSourceInfo> sources)
+    {
+        foreach (var source in sources)
+        {
+            var streams = source.MediaStreams;
+            if (streams is null || streams.Count == 0)
+            {
+                continue;
+            }
+
+            var kept = streams
+                .Where(stream => !(stream.Type == MediaStreamType.Subtitle
+                    && stream.IsTextSubtitleStream))
+                .ToList();
+            if (kept.Count != streams.Count)
+            {
+                source.MediaStreams = kept;
+            }
+        }
+
+        return sources;
     }
 
     private void SaveStreams(
