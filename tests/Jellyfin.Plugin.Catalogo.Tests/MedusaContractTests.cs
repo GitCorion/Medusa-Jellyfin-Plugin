@@ -48,6 +48,7 @@ public class MedusaContractTests
         Assert.Contains("status", features);
         Assert.Contains("prepare", features);
         Assert.Equal("Medusa", json.GetProperty("name").GetString());
+        Assert.False(json.GetProperty("native_mode").GetBoolean());
     }
 
     [Fact]

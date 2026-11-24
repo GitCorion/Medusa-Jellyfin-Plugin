@@ -16,4 +16,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the HTTP timeout in seconds.
     /// </summary>
     public int TimeoutSeconds { get; set; } = 15;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether Jellyfin clients that are not
+    /// Medusa may prepare a cold catalog item from PlaybackInfo. Medusa always
+    /// keeps its own flow. Disabled by default.
+    /// </summary>
+    public bool NativeMode { get; set; }
 }

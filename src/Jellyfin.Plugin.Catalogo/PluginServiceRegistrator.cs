@@ -1,6 +1,7 @@
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Plugins;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Jellyfin.Plugin.Catalogo.Configuration;
@@ -20,6 +21,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         IServerApplicationHost applicationHost)
     {
         serviceCollection.AddHttpClient<CatalogoProxyClient>();
+        serviceCollection.AddHttpContextAccessor();
         serviceCollection.AddHostedService<PlaybackLeaseService>();
         serviceCollection
             .AddControllers()
@@ -53,7 +55,8 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
                     false,
                     provider,
                     provider.GetRequiredService<ILogger<CatalogoMediaSourceManager>>(),
-                    GetConfiguration);
+                    GetConfiguration,
+                    provider.GetService<IHttpContextAccessor>());
             },
             descriptor.Lifetime));
     }

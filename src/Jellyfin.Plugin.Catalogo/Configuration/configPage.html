@@ -25,6 +25,17 @@
                     <label class="inputLabel inputLabelUnfocused" for="TimeoutSeconds">Timeout (seconds)</label>
                     <input id="TimeoutSeconds" name="TimeoutSeconds" type="number" min="2" max="120" is="emby-input" />
                 </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input id="NativeMode" name="NativeMode" type="checkbox" is="emby-checkbox" />
+                        <span>Native mode</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">
+                        Prepare cold catalog items from Jellyfin clients that are not
+                        Medusa. Medusa keeps its own preparation flow. Experimental and
+                        disabled by default.
+                    </div>
+                </div>
                 <div>
                     <button is="emby-button" type="submit" class="raised button-submit block">
                         <span>Save</span>
@@ -46,6 +57,8 @@
                     config.ProxyUrl || 'http://127.0.0.1:8773';
                 document.querySelector('#TimeoutSeconds').value =
                     config.TimeoutSeconds || 15;
+                document.querySelector('#NativeMode').checked =
+                    config.NativeMode === true;
             });
         });
 
@@ -55,6 +68,8 @@
                 config.ProxyUrl = document.querySelector('#ProxyUrl').value.trim();
                 config.TimeoutSeconds =
                     parseInt(document.querySelector('#TimeoutSeconds').value, 10) || 15;
+                config.NativeMode =
+                    document.querySelector('#NativeMode').checked === true;
                 ApiClient.updatePluginConfiguration(pluginId, config).then(function () {
                     Dashboard.processPluginConfigurationUpdateResult();
                 });

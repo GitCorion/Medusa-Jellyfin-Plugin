@@ -51,6 +51,7 @@ public class CatalogoController : ControllerBase
             plugin_version = version,
             name = "Medusa",
             features = new[] { "status", "prepare", "lease", "media-info", "fast-start" },
+            native_mode = Plugin.Instance?.Configuration.NativeMode ?? false,
             proxy_configured = !string.IsNullOrWhiteSpace(
                 Plugin.Instance?.Configuration.ProxyUrl)
         });

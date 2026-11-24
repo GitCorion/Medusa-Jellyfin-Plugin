@@ -198,6 +198,14 @@ matriz anterior.
 - No cambiar `Capabilities`, `MediaSources`, `Path` ni `HideTextSubtitles` en
   el camino de compatibilidad.
 
+Estado actual:
+
+- `NativeMode` ya existe en la configuración y está apagado por defecto.
+- `Capabilities` publica `native_mode` como campo aditivo; Medusa lo ignora.
+- La preparación server-side solo se activa con el flag y cuando el cliente
+  no es Medusa. Sin contexto HTTP se aplica compatibilidad.
+- `MediaSources`, `Path`, `stream_ready` y `HideTextSubtitles` siguen igual.
+
 ## 7. Rollback
 
 - `NativeMode` apagado devuelve el camino actual.

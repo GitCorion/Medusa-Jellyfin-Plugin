@@ -9,6 +9,7 @@ using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.MediaInfo;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -25,6 +26,7 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
     private readonly IServiceProvider _services;
     private readonly ILogger<CatalogoMediaSourceManager> _logger;
     private readonly Func<PluginConfiguration?> _configuration;
+    private readonly IHttpContextAccessor? _httpContext;
     private bool _disposed;
 
     /// <summary>
@@ -35,18 +37,21 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
     /// <param name="services">Service provider.</param>
     /// <param name="logger">Logger.</param>
     /// <param name="configuration">Returns the current plugin configuration.</param>
+    /// <param name="httpContext">Current Jellyfin request, when available.</param>
     public CatalogoMediaSourceManager(
         IMediaSourceManager inner,
         bool ownsInner,
         IServiceProvider services,
         ILogger<CatalogoMediaSourceManager> logger,
-        Func<PluginConfiguration?> configuration)
+        Func<PluginConfiguration?> configuration,
+        IHttpContextAccessor? httpContext = null)
     {
         _inner = inner;
         _ownsInner = ownsInner;
         _services = services;
         _logger = logger;
         _configuration = configuration;
+        _httpContext = httpContext;
     }
 
     /// <inheritdoc />
@@ -68,8 +73,12 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         {
             var streams = item.GetMediaStreams();
             var hasVideo = HasVideo(streams);
+            // Medusa ya prepara antes de pedir PlaybackInfo. Los clientes
+            // nativos no, así que en modo nativo también se prepara cuando el
+            // ítem ya tiene streams guardados pero el fichero sigue frío.
+            var native = IsNativeMode() && !IsCompatibilityClient();
             var (info, complete) = await ResolveMediaInfoAsync(
-                    item, prepare: !hasVideo, cancellationToken)
+                    item, prepare: !hasVideo || native, cancellationToken)
                 .ConfigureAwait(false);
             IReadOnlyList<MediaStream>? mappedStreams = null;
             if (!hasVideo && info is not null)
@@ -250,6 +259,46 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
 
     private static bool HasVideo(IReadOnlyList<MediaStream> streams)
         => streams.Any(stream => stream.Type == MediaStreamType.Video);
+
+    private bool IsNativeMode()
+        => _configuration()?.NativeMode == true;
+
+    private bool IsCompatibilityClient()
+    {
+        var context = _httpContext?.HttpContext;
+        // Sin petición HTTP no hay forma de distinguir al cliente. Se aplica
+        // el camino de compatibilidad para no cambiar el de Medusa.
+        if (context is null)
+        {
+            return true;
+        }
+
+        return IsMedusaClient(context.Request.Headers);
+    }
+
+    /// <summary>
+    /// Detects Medusa from the Jellyfin client headers. Medusa sends
+    /// <c>Client="Medusa"</c> in Authorization and X-Emby-Authorization.
+    /// </summary>
+    /// <param name="headers">Current request headers.</param>
+    /// <returns><c>true</c> when the request belongs to Medusa.</returns>
+    public static bool IsMedusaClient(IHeaderDictionary headers)
+    {
+        var client = headers["X-Emby-Client"].FirstOrDefault();
+        if (client?.Contains("Medusa", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return true;
+        }
+
+        var auth = headers["Authorization"].FirstOrDefault()
+            ?? headers["X-Emby-Authorization"].FirstOrDefault();
+        return auth?.Contains(
+                "Client=\"Medusa\"",
+                StringComparison.OrdinalIgnoreCase) == true
+            || auth?.Contains(
+                "Client=Medusa",
+                StringComparison.OrdinalIgnoreCase) == true;
+    }
 
     private static bool IsCatalogoItem(BaseItem? item)
     {
