@@ -36,6 +36,15 @@
                         disabled by default.
                     </div>
                 </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="NativePrebufferSeconds">Native prebuffer (seconds)</label>
+                    <input id="NativePrebufferSeconds" name="NativePrebufferSeconds" type="number" min="0" max="30" is="emby-input" />
+                    <div class="fieldDescription">
+                        How long a native PlaybackInfo waits for the stream after
+                        starting a prepare. Zero returns immediately. Medusa never
+                        waits.
+                    </div>
+                </div>
                 <div>
                     <button is="emby-button" type="submit" class="raised button-submit block">
                         <span>Save</span>
@@ -59,6 +68,8 @@
                     config.TimeoutSeconds || 15;
                 document.querySelector('#NativeMode').checked =
                     config.NativeMode === true;
+                document.querySelector('#NativePrebufferSeconds').value =
+                    config.NativePrebufferSeconds || 0;
             });
         });
 
@@ -70,6 +81,9 @@
                     parseInt(document.querySelector('#TimeoutSeconds').value, 10) || 15;
                 config.NativeMode =
                     document.querySelector('#NativeMode').checked === true;
+                config.NativePrebufferSeconds =
+                    Math.max(0, Math.min(30,
+                        parseInt(document.querySelector('#NativePrebufferSeconds').value, 10) || 0));
                 ApiClient.updatePluginConfiguration(pluginId, config).then(function () {
                     Dashboard.processPluginConfigurationUpdateResult();
                 });

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Jellyfin.Plugin.Catalogo.Configuration;
 using Jellyfin.Plugin.Catalogo.Playback;
 using Microsoft.AspNetCore.Http;
@@ -9,7 +10,11 @@ public class NativeModeTests
 {
     [Fact]
     public void NativeMode_IsOffByDefault()
-        => Assert.False(new PluginConfiguration().NativeMode);
+    {
+        var configuration = new PluginConfiguration();
+        Assert.False(configuration.NativeMode);
+        Assert.Equal(0, configuration.NativePrebufferSeconds);
+    }
 
     [Theory]
     [InlineData("MediaBrowser Client=\"Medusa\", Device=\"AndroidTV\"", "")]
@@ -84,5 +89,23 @@ public class NativeModeTests
             expected,
             CatalogoMediaSourceManager.ShouldPrepare(
                 hasVideo, nativeMode, compatibilityClient));
+    }
+
+    [Theory]
+    [InlineData("""{"state": "COLD"}""", true)]
+    [InlineData("""{"state": "DOWNLOADING"}""", true)]
+    [InlineData("""{"state": "PAUSED"}""", true)]
+    [InlineData("""{"state": "SEEDING"}""", true)]
+    [InlineData("""{"state": "UNAVAILABLE"}""", false)]
+    [InlineData("""{"state": "ERROR"}""", false)]
+    [InlineData("""{"state": "UNKNOWN"}""", false)]
+    [InlineData("""{}""", false)]
+    public void IsWaitable_StopsOnTerminalStates(string raw, bool expected)
+    {
+        using var document = JsonDocument.Parse(raw);
+
+        Assert.Equal(
+            expected,
+            CatalogoMediaSourceManager.IsWaitable(document.RootElement));
     }
 }

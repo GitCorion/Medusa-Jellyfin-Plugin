@@ -76,10 +76,15 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
             // Medusa ya prepara antes de pedir PlaybackInfo. Los clientes
             // nativos no, así que en modo nativo también se prepara cuando el
             // ítem ya tiene streams guardados pero el fichero sigue frío.
-            var prepare = ShouldPrepare(
-                hasVideo, IsNativeMode(), IsCompatibilityClient());
+            var nativeMode = IsNativeMode();
+            var compatibility = IsCompatibilityClient();
+            var prepare = ShouldPrepare(hasVideo, nativeMode, compatibility);
+            var waitSeconds = nativeMode && !compatibility
+                ? Math.Clamp(
+                    _configuration()?.NativePrebufferSeconds ?? 0, 0, 30)
+                : 0;
             var (info, complete) = await ResolveMediaInfoAsync(
-                    item, prepare: prepare, cancellationToken)
+                    item, prepare, waitSeconds, cancellationToken)
                 .ConfigureAwait(false);
             IReadOnlyList<MediaStream>? mappedStreams = null;
             if (!hasVideo && info is not null)
@@ -331,6 +336,7 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
     private async Task<(JsonElement? Info, bool Complete)> ResolveMediaInfoAsync(
         BaseItem item,
         bool prepare,
+        int waitSeconds,
         CancellationToken cancellationToken)
     {
         var proxy = _services.GetRequiredService<CatalogoProxyClient>();
@@ -367,6 +373,15 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
                     .ConfigureAwait(false);
                 resolved = ReleaseId(status) ?? resolved;
                 complete = IsComplete(status);
+                if (waitSeconds > 0 && !IsReady(status) && IsWaitable(status))
+                {
+                    status = await WaitForReadyAsync(
+                            proxy, key, resolved, status, waitSeconds,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    resolved = ReleaseId(status) ?? resolved;
+                    complete = IsComplete(status);
+                }
             }
         }
         catch (CatalogoProxyException)
@@ -503,6 +518,63 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
     private static bool IsReady(JsonElement status)
         => status.TryGetProperty("stream_ready", out var value)
             && value.ValueKind == JsonValueKind.True;
+
+    /// <summary>
+    /// Indica si merece la pena esperar a que TOD arranque el stream. Los
+    /// estados terminales no deben bloquear el PlaybackInfo nativo.
+    /// </summary>
+    /// <param name="status">Respuesta de /status de TOD.</param>
+    /// <returns><c>true</c> si el estado todavía puede avanzar.</returns>
+    public static bool IsWaitable(JsonElement status)
+    {
+        if (status.ValueKind != JsonValueKind.Object
+            || !status.TryGetProperty("state", out var state)
+            || state.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        return state.GetString() is
+            "COLD" or "DOWNLOADING" or "PAUSED" or "SEEDING"
+            or "AVAILABLE" or "SEEDING_LOCAL" or "AVAILABLE_LOCAL";
+    }
+
+    private static async Task<JsonElement> WaitForReadyAsync(
+        CatalogoProxyClient proxy,
+        string key,
+        int? releaseId,
+        JsonElement status,
+        int waitSeconds,
+        CancellationToken cancellationToken)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(waitSeconds);
+        while (DateTime.UtcNow < deadline
+            && !cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+                status = await proxy.GetStatusAsync(
+                        key, releaseId, cancellationToken)
+                    .ConfigureAwait(false);
+                releaseId = ReleaseId(status) ?? releaseId;
+                if (IsReady(status) || !IsWaitable(status))
+                {
+                    return status;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return status;
+            }
+            catch (CatalogoProxyException)
+            {
+                return status;
+            }
+        }
+
+        return status;
+    }
 
     private static IReadOnlyList<MediaSourceInfo> Decorate(
         IReadOnlyList<MediaSourceInfo> sources,

@@ -23,4 +23,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// keeps its own flow. Disabled by default.
     /// </summary>
     public bool NativeMode { get; set; }
+
+    /// <summary>
+    /// Gets or sets how long a native PlaybackInfo may wait for the stream to
+    /// be ready after starting a prepare. Zero disables the wait. Medusa never
+    /// waits. Clamped to 0-30 seconds by the playback path.
+    /// </summary>
+    public int NativePrebufferSeconds { get; set; }
 }
