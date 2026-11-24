@@ -78,8 +78,9 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
             // ítem ya tiene streams guardados pero el fichero sigue frío.
             var nativeMode = IsNativeMode();
             var compatibility = IsCompatibilityClient();
+            var native = nativeMode && !compatibility;
             var prepare = ShouldPrepare(hasVideo, nativeMode, compatibility);
-            var waitSeconds = nativeMode && !compatibility
+            var waitSeconds = native
                 ? Math.Clamp(
                     _configuration()?.NativePrebufferSeconds ?? 0, 0, 30)
                 : 0;
@@ -109,7 +110,7 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
                 var sources = await _inner.GetPlaybackMediaSources(
                     item, user, false, enablePathSubstitution, cancellationToken)
                     .ConfigureAwait(false);
-                Decorate(sources, info, mappedStreams ?? streams);
+                Decorate(sources, info, mappedStreams ?? streams, native);
                 // Con la descarga a medias, Jellyfin extrae los subtítulos de
                 // texto con ffmpeg leyendo el fichero entero: se queda colgado
                 // y reintenta. Se ocultan hasta que TOD tenga el fichero entero.
@@ -579,7 +580,8 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
     private static IReadOnlyList<MediaSourceInfo> Decorate(
         IReadOnlyList<MediaSourceInfo> sources,
         JsonElement? info,
-        IReadOnlyList<MediaStream>? streams)
+        IReadOnlyList<MediaStream>? streams,
+        bool native)
     {
         if (info is null || sources.Count == 0)
         {
@@ -591,6 +593,15 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         var size = CatalogoMediaStreams.MediaSize(info.Value);
         foreach (var source in sources)
         {
+            if (native)
+            {
+                // El Path del .strm apunta a TOD en loopback (o a un host de
+                // Docker). Un cliente nativo no puede abrirlo; forzamos el
+                // proxy de Jellyfin. Medusa no entra aquí.
+                source.SupportsDirectPlay = false;
+                source.SupportsDirectStream = true;
+            }
+
             if (!string.IsNullOrWhiteSpace(container))
             {
                 source.Container = container;
