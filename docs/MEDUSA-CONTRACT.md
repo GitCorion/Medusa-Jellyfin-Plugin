@@ -150,6 +150,11 @@ estables.
 
 ## 5. Plan de pruebas mínimo
 
+Los tests de contrato viven en
+`tests/Jellyfin.Plugin.Catalogo.Tests/MedusaContractTests.cs` y
+`CatalogoProxyClientTests.cs`. No cambian comportamiento: congelan la API que
+consume Medusa.
+
 ### Plugin, sin Medusa
 
 - `Capabilities` mantiene `api_version=1` y las features `status` y `prepare`.
