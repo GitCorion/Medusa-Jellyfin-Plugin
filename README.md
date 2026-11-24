@@ -78,6 +78,14 @@ Set the proxy URL, normally:
 http://127.0.0.1:8773
 ```
 
+### Native mode (experimental)
+
+Off by default. When enabled, Jellyfin clients that are not Medusa can start a
+cold catalog prepare from `PlaybackInfo` and, optionally, wait up to 30
+seconds (`Native prebuffer`) before returning the media sources. Medusa keeps
+its own preparation flow and is detected from its Jellyfin client headers.
+Keep it off until you have tested your other Jellyfin clients.
+
 ## API
 
 All endpoints are served by Jellyfin, not by the proxy.
