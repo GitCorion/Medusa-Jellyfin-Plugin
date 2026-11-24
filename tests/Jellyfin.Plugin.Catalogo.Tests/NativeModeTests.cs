@@ -66,4 +66,23 @@ public class NativeModeTests
 
         Assert.True(CatalogoMediaSourceManager.IsMedusaClient(headers));
     }
+
+    [Theory]
+    [InlineData(false, false, true, true)]
+    [InlineData(false, true, true, true)]
+    [InlineData(true, false, false, false)]
+    [InlineData(true, true, false, true)]
+    [InlineData(true, true, true, false)]
+    [InlineData(true, false, true, false)]
+    public void ShouldPrepare_KeepsLegacyPathAndAddsNativeOnly(
+        bool hasVideo,
+        bool nativeMode,
+        bool compatibilityClient,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            CatalogoMediaSourceManager.ShouldPrepare(
+                hasVideo, nativeMode, compatibilityClient));
+    }
 }

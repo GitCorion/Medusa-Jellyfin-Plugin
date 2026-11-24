@@ -76,9 +76,10 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
             // Medusa ya prepara antes de pedir PlaybackInfo. Los clientes
             // nativos no, así que en modo nativo también se prepara cuando el
             // ítem ya tiene streams guardados pero el fichero sigue frío.
-            var native = IsNativeMode() && !IsCompatibilityClient();
+            var prepare = ShouldPrepare(
+                hasVideo, IsNativeMode(), IsCompatibilityClient());
             var (info, complete) = await ResolveMediaInfoAsync(
-                    item, prepare: !hasVideo || native, cancellationToken)
+                    item, prepare: prepare, cancellationToken)
                 .ConfigureAwait(false);
             IReadOnlyList<MediaStream>? mappedStreams = null;
             if (!hasVideo && info is not null)
@@ -262,6 +263,22 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
 
     private bool IsNativeMode()
         => _configuration()?.NativeMode == true;
+
+    /// <summary>
+    /// Decides whether a catalog PlaybackInfo may start a prepare.
+    /// Medusa and the legacy path only prepare when the item has no video
+    /// streams. Native mode also prepares when streams exist but the file is
+    /// still cold.
+    /// </summary>
+    /// <param name="hasVideo">Whether the item already has video streams.</param>
+    /// <param name="nativeMode">Whether native mode is enabled.</param>
+    /// <param name="compatibilityClient">Whether the client needs the legacy path.</param>
+    /// <returns><c>true</c> when prepare should be attempted.</returns>
+    public static bool ShouldPrepare(
+        bool hasVideo,
+        bool nativeMode,
+        bool compatibilityClient)
+        => !hasVideo || (nativeMode && !compatibilityClient);
 
     private bool IsCompatibilityClient()
     {
