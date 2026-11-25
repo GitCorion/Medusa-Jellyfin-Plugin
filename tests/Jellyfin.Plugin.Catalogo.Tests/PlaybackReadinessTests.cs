@@ -24,7 +24,7 @@ public class PlaybackReadinessTests
         => Assert.Equal(expected, CatalogoMediaSourceManager.IsComplete(Json(raw)));
 
     [Fact]
-    public void HideTextSubtitles_KeepsVideoAndBitmapSubtitles()
+    public void HideTextSubtitles_StripsEmbeddedSubtitlesAndDisablesExtraction()
     {
         var source = new MediaSourceInfo
         {
@@ -36,26 +36,35 @@ public class PlaybackReadinessTests
                 {
                     Index = 2,
                     Type = MediaStreamType.Subtitle,
-                    Codec = "subrip"
+                    Codec = "subrip",
+                    IsExternal = false
                 },
                 new()
                 {
                     Index = 3,
                     Type = MediaStreamType.Subtitle,
-                    Codec = "pgssub"
+                    Codec = "pgssub",
+                    IsExternal = false
+                },
+                new()
+                {
+                    Index = 4,
+                    Type = MediaStreamType.Subtitle,
+                    Codec = "subrip",
+                    IsExternal = true
                 }
             }
         };
 
         var result = CatalogoMediaSourceManager.HideTextSubtitles(new[] { source });
 
-        var streams = Assert.Single(result).MediaStreams;
+        var s = Assert.Single(result);
+        var streams = s.MediaStreams;
         Assert.Equal(3, streams.Count);
-        Assert.DoesNotContain(
-            streams,
-            stream => stream.Type == MediaStreamType.Subtitle
-                && stream.IsTextSubtitleStream);
-        Assert.Contains(streams, stream => stream.Codec == "pgssub");
+        Assert.Contains(streams, stream => stream.Type == MediaStreamType.Video);
+        Assert.Contains(streams, stream => stream.Type == MediaStreamType.Audio);
+        Assert.Contains(streams, stream => stream.IsExternal);
+        Assert.DoesNotContain(streams, stream => stream.Type == MediaStreamType.Subtitle && !stream.IsExternal);
     }
 
     [Fact]

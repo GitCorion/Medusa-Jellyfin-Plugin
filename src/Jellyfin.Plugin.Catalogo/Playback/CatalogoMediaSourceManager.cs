@@ -93,7 +93,7 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
                 var mapped = CatalogoMediaStreams.FromJson(info.Value);
                 if (mapped.Any(stream => stream.Type == MediaStreamType.Video))
                 {
-                    SaveStreams(item, mapped, info, cancellationToken);
+                    await SaveStreamsAsync(item, mapped, info, cancellationToken).ConfigureAwait(false);
                     streams = mapped;
                     mappedStreams = mapped;
                     _logger.LogInformation(
@@ -101,6 +101,10 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
                         mapped.Count,
                         item.Name);
                 }
+            }
+            else if (info is not null)
+            {
+                await EnsureDurationPersistedAsync(item, info.Value, cancellationToken).ConfigureAwait(false);
             }
 
             EnsureShortcut(item);
@@ -110,11 +114,11 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
                 var sources = await _inner.GetPlaybackMediaSources(
                     item, user, false, enablePathSubstitution, cancellationToken)
                     .ConfigureAwait(false);
-                Decorate(sources, info, mappedStreams ?? streams, native);
-                // Con la descarga a medias, Jellyfin extrae los subtítulos de
-                // texto con ffmpeg leyendo el fichero entero: se queda colgado
-                // y reintenta. Se ocultan hasta que TOD tenga el fichero entero.
-                return complete ? sources : HideTextSubtitles(sources);
+                Decorate(item, sources, info, mappedStreams ?? streams, native);
+                // Con .strm / TOD sobre HTTP, Jellyfin intenta extraer los subtítulos
+                // de texto con ffmpeg leyendo el fichero entero por HTTP: satura el
+                // servidor y bloquea el inicio del vídeo. Se ocultan siempre.
+                return HideTextSubtitles(sources);
             }
         }
         catch (Exception ex)
@@ -156,47 +160,89 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         BaseItem item,
         bool enablePathSubstitution,
         User user)
-        => _inner.GetStaticMediaSources(item, enablePathSubstitution, user);
+    {
+        var sources = _inner.GetStaticMediaSources(item, enablePathSubstitution, user);
+        if (IsCatalogoItem(item) && sources != null)
+        {
+            var native = IsNativeMode() && !IsCompatibilityClient();
+            foreach (var source in sources)
+            {
+                FixSourceForCatalogo(source, item, native);
+            }
+            HideTextSubtitles(sources);
+        }
+        return sources;
+    }
 
     /// <inheritdoc />
-    public Task<MediaSourceInfo> GetMediaSource(
+    public async Task<MediaSourceInfo> GetMediaSource(
         BaseItem item,
         string mediaSourceId,
         string liveStreamId,
         bool enablePathSubstitution,
         CancellationToken cancellationToken)
-        => _inner.GetMediaSource(
-            item, mediaSourceId, liveStreamId, enablePathSubstitution, cancellationToken);
+    {
+        var source = await _inner.GetMediaSource(
+            item, mediaSourceId, liveStreamId, enablePathSubstitution, cancellationToken)
+            .ConfigureAwait(false);
+        if (IsCatalogoItem(item) && source != null)
+        {
+            var native = IsNativeMode() && !IsCompatibilityClient();
+            FixSourceForCatalogo(source, item, native);
+            HideTextSubtitles(new[] { source });
+        }
+        return source;
+    }
 
     /// <inheritdoc />
-    public Task<LiveStreamResponse> OpenLiveStream(
+    public async Task<LiveStreamResponse> OpenLiveStream(
         LiveStreamRequest request,
         CancellationToken cancellationToken)
-        => _inner.OpenLiveStream(request, cancellationToken);
+    {
+        var response = await _inner.OpenLiveStream(request, cancellationToken).ConfigureAwait(false);
+        NormalizeMediaSource(response?.MediaSource);
+        return response;
+    }
 
     /// <inheritdoc />
-    public Task<Tuple<LiveStreamResponse, IDirectStreamProvider>> OpenLiveStreamInternal(
+    public async Task<Tuple<LiveStreamResponse, IDirectStreamProvider>> OpenLiveStreamInternal(
         LiveStreamRequest request,
         CancellationToken cancellationToken)
-        => _inner.OpenLiveStreamInternal(request, cancellationToken);
+    {
+        var tuple = await _inner.OpenLiveStreamInternal(request, cancellationToken).ConfigureAwait(false);
+        NormalizeMediaSource(tuple?.Item1?.MediaSource);
+        return tuple;
+    }
 
     /// <inheritdoc />
-    public Task<MediaSourceInfo> GetLiveStream(
+    public async Task<MediaSourceInfo> GetLiveStream(
         string id,
         CancellationToken cancellationToken)
-        => _inner.GetLiveStream(id, cancellationToken);
+    {
+        var source = await _inner.GetLiveStream(id, cancellationToken).ConfigureAwait(false);
+        NormalizeMediaSource(source);
+        return source;
+    }
 
     /// <inheritdoc />
-    public Task<Tuple<MediaSourceInfo, IDirectStreamProvider>> GetLiveStreamWithDirectStreamProvider(
+    public async Task<Tuple<MediaSourceInfo, IDirectStreamProvider>> GetLiveStreamWithDirectStreamProvider(
         string id,
         CancellationToken cancellationToken)
-        => _inner.GetLiveStreamWithDirectStreamProvider(id, cancellationToken);
+    {
+        var tuple = await _inner.GetLiveStreamWithDirectStreamProvider(id, cancellationToken).ConfigureAwait(false);
+        NormalizeMediaSource(tuple?.Item1);
+        return tuple;
+    }
 
     /// <inheritdoc />
-    public Task<MediaSourceInfo> GetLiveStreamMediaInfo(
+    public async Task<MediaSourceInfo> GetLiveStreamMediaInfo(
         string id,
         CancellationToken cancellationToken)
-        => _inner.GetLiveStreamMediaInfo(id, cancellationToken);
+    {
+        var source = await _inner.GetLiveStreamMediaInfo(id, cancellationToken).ConfigureAwait(false);
+        NormalizeMediaSource(source);
+        return source;
+    }
 
     /// <inheritdoc />
     public ILiveStream? GetLiveStreamInfo(string id)
@@ -437,12 +483,13 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
     }
 
     /// <summary>
-    /// Quita los subtítulos de texto embebidos de las fuentes. Jellyfin los
-    /// extrae con ffmpeg leyendo el fichero entero; con un torrent a medias
-    /// esa extracción se queda esperando piezas y reintenta en bucle.
+    /// Quita los subtítulos embebidos de las fuentes y desactiva la extracción.
+    /// Jellyfin intenta extraer subtítulos con ffmpeg leyendo el fichero entero;
+    /// con un torrent a medias esa extracción se queda esperando piezas y reintenta
+    /// en bucle infinito o falla al convertir PGS a SRT.
     /// </summary>
     /// <param name="sources">Fuentes de reproducción.</param>
-    /// <returns>Las mismas fuentes sin subtítulos de texto.</returns>
+    /// <returns>Las mismas fuentes sin subtítulos embebidos.</returns>
     public static IReadOnlyList<MediaSourceInfo> HideTextSubtitles(
         IReadOnlyList<MediaSourceInfo> sources)
     {
@@ -455,8 +502,7 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
             }
 
             var kept = streams
-                .Where(stream => !(stream.Type == MediaStreamType.Subtitle
-                    && stream.IsTextSubtitleStream))
+                .Where(stream => stream.Type != MediaStreamType.Subtitle || stream.IsExternal)
                 .ToList();
             if (kept.Count != streams.Count)
             {
@@ -467,7 +513,7 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         return sources;
     }
 
-    private void SaveStreams(
+    private async Task SaveStreamsAsync(
         BaseItem item,
         IReadOnlyList<MediaStream> streams,
         JsonElement? info,
@@ -477,18 +523,45 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         repository.SaveMediaStreams(item.Id, streams, cancellationToken);
         if (info is not null)
         {
-            var ticks = CatalogoMediaStreams.DurationTicks(info.Value);
-            if (ticks.HasValue)
-            {
-                item.RunTimeTicks = ticks;
-            }
+            await EnsureDurationPersistedAsync(item, info.Value, cancellationToken).ConfigureAwait(false);
         }
 
         EnsureShortcut(item);
     }
 
+    private async Task EnsureDurationPersistedAsync(
+        BaseItem item,
+        JsonElement info,
+        CancellationToken cancellationToken)
+    {
+        var ticks = CatalogoMediaStreams.DurationTicks(info);
+        if (ticks.HasValue && (!item.RunTimeTicks.HasValue || item.RunTimeTicks.Value < ticks.Value))
+        {
+            item.RunTimeTicks = ticks;
+            try
+            {
+                await item.UpdateToRepositoryAsync(
+                    ItemUpdateType.MetadataEdit, cancellationToken)
+                    .ConfigureAwait(false);
+                _logger.LogInformation(
+                    "Medusa fast start: persisted RunTimeTicks {Ticks} for {Item}",
+                    ticks.Value,
+                    item.Name);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to persist RunTimeTicks for {Item}", item.Name);
+            }
+        }
+    }
+
     private static void EnsureShortcut(BaseItem item)
     {
+        if (string.Equals(item.Container, "strm", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(item.Container))
+        {
+            item.Container = "mkv";
+        }
+
         if (!item.IsShortcut || string.IsNullOrWhiteSpace(item.Path)
             || !string.IsNullOrWhiteSpace(item.ShortcutPath))
         {
@@ -578,39 +651,26 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
     }
 
     private static IReadOnlyList<MediaSourceInfo> Decorate(
+        BaseItem item,
         IReadOnlyList<MediaSourceInfo> sources,
         JsonElement? info,
         IReadOnlyList<MediaStream>? streams,
         bool native)
     {
-        if (info is null || sources.Count == 0)
+        if (sources.Count == 0)
         {
             return sources;
         }
 
-        var container = CatalogoMediaStreams.Container(info.Value);
-        var ticks = CatalogoMediaStreams.DurationTicks(info.Value);
-        var size = CatalogoMediaStreams.MediaSize(info.Value);
+        var container = info.HasValue ? CatalogoMediaStreams.Container(info.Value) : null;
+        var ticks = info.HasValue ? CatalogoMediaStreams.DurationTicks(info.Value) : null;
+        var size = info.HasValue ? CatalogoMediaStreams.MediaSize(info.Value) : null;
+        var effectiveTicks = ticks ?? item.RunTimeTicks ?? DefaultFallbackTicks(item);
         foreach (var source in sources)
         {
-            if (native)
-            {
-                // El Path del .strm apunta a TOD en loopback (o a un host de
-                // Docker). Un cliente nativo no puede abrirlo; forzamos el
-                // proxy de Jellyfin. Medusa no entra aquí.
-                source.SupportsDirectPlay = false;
-                source.SupportsDirectStream = true;
-            }
+            FixSourceForCatalogo(source, item, native, container);
 
-            if (!string.IsNullOrWhiteSpace(container))
-            {
-                source.Container = container;
-            }
-
-            if (ticks.HasValue)
-            {
-                source.RunTimeTicks ??= ticks;
-            }
+            source.RunTimeTicks ??= effectiveTicks;
 
             if (size.HasValue)
             {
@@ -627,5 +687,62 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         }
 
         return sources;
+    }
+
+    private static void NormalizeMediaSource(MediaSourceInfo? source)
+    {
+        if (source == null)
+        {
+            return;
+        }
+
+        if (string.Equals(source.Container, "strm", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(source.Container))
+        {
+            source.Container = "mkv";
+        }
+
+        HideTextSubtitles(new[] { source });
+    }
+
+    private static void FixSourceForCatalogo(
+        MediaSourceInfo source,
+        BaseItem item,
+        bool native,
+        string? container = null)
+    {
+        if (native)
+        {
+            // El Path del .strm apunta a TOD en loopback (o a un host de
+            // Docker). Un cliente nativo no puede abrirlo; forzamos el
+            // proxy de Jellyfin. Medusa no entra aquí.
+            source.SupportsDirectPlay = false;
+            source.SupportsDirectStream = true;
+        }
+
+        // ffmpeg falla si el contenedor es "strm" durante transcodificación
+        // o direct stream remuxing ("Unable to choose an output format for ...strm").
+        if (!string.IsNullOrWhiteSpace(container))
+        {
+            source.Container = container;
+        }
+        else if (string.Equals(source.Container, "strm", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(source.Container))
+        {
+            source.Container = "mkv";
+        }
+
+        if (!source.RunTimeTicks.HasValue)
+        {
+            source.RunTimeTicks = item.RunTimeTicks ?? DefaultFallbackTicks(item);
+        }
+    }
+
+    private static long DefaultFallbackTicks(BaseItem item)
+    {
+        var typeName = item?.GetType().Name;
+        return typeName != null && typeName.Contains("Episode", StringComparison.OrdinalIgnoreCase)
+            ? TimeSpan.FromMinutes(45).Ticks
+            : TimeSpan.FromMinutes(90).Ticks;
     }
 }

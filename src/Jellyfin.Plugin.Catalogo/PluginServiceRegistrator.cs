@@ -27,6 +27,13 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
             .AddControllers()
             .AddApplicationPart(typeof(Plugin).Assembly);
 
+        serviceCollection.AddTransient<Microsoft.AspNetCore.Hosting.IStartupFilter, CatalogoStartupFilter>();
+        serviceCollection.AddScoped<CatalogoStreamContainerFilter>();
+        serviceCollection.Configure<Microsoft.AspNetCore.Mvc.MvcOptions>(options =>
+        {
+            options.Filters.Add<CatalogoStreamContainerFilter>();
+        });
+
         DecorateMediaSourceManager(serviceCollection);
     }
 
