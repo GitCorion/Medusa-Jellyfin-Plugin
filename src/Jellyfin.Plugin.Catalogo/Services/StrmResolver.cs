@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.WebUtilities;
 namespace Jellyfin.Plugin.Catalogo.Services;
 
 /// <summary>
-/// Extracts the Catalogo key and release from a Jellyfin .strm file.
+/// Extracts the Catalogo key and release from a Jellyfin .strm file or play URL.
 /// </summary>
 public static class StrmResolver
 {
@@ -38,18 +38,28 @@ public static class StrmResolver
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault()?
             .Trim();
-        if (string.IsNullOrWhiteSpace(line))
+        return ParseUrl(line);
+    }
+
+    /// <summary>
+    /// Parses a Catalogo play URL (from a .strm or MediaSourceInfo.Path).
+    /// </summary>
+    /// <param name="url">Catalogo URL.</param>
+    /// <returns>The key and optional release id.</returns>
+    public static (string? Key, int? ReleaseId) ParseUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
         {
             return (null, null);
         }
 
-        var queryIndex = line.IndexOf('?', StringComparison.Ordinal);
+        var queryIndex = url.IndexOf('?', StringComparison.Ordinal);
         if (queryIndex < 0)
         {
             return (null, null);
         }
 
-        var query = QueryHelpers.ParseQuery(line[queryIndex..]);
+        var query = QueryHelpers.ParseQuery(url[queryIndex..]);
         var key = query.TryGetValue("key", out var keys)
             ? keys.FirstOrDefault()
             : null;

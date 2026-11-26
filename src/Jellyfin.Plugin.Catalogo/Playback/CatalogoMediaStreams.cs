@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using MediaBrowser.Model.Entities;
+using Jellyfin.Data.Enums;
 
 namespace Jellyfin.Plugin.Catalogo.Playback;
 
@@ -20,6 +21,9 @@ public static class CatalogoMediaStreams
         if (info.TryGetProperty("video", out var video)
             && video.ValueKind == JsonValueKind.Object)
         {
+            var isDolbyVision = video.TryGetProperty("dolby_vision", out var dvProp)
+                && dvProp.ValueKind == JsonValueKind.True;
+            var colorTransfer = GetString(video, "color_transfer");
             var stream = new MediaStream
             {
                 Type = MediaStreamType.Video,
@@ -29,6 +33,9 @@ public static class CatalogoMediaStreams
                 Height = GetInt(video, "height"),
                 BitDepth = GetInt(video, "bit_depth"),
                 Profile = GetString(video, "profile"),
+                ColorTransfer = colorTransfer,
+                ColorPrimaries = GetString(video, "color_primaries"),
+                DvProfile = isDolbyVision ? 8 : null,
                 IsDefault = true,
             };
             streams.Add(stream);

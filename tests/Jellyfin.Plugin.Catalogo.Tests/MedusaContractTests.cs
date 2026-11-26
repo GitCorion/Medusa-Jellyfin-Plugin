@@ -186,6 +186,40 @@ public class MedusaContractTests
         }
     }
 
+    [Fact]
+    public async Task Status_ForwardsClientVideoCapabilities_AndCapabilitiesAdvertiseNegotiation()
+    {
+        const string jsonBody = "{\"key\":\"movie:tmdb:1\",\"release_id\":109,\"recommended_release_id\":109,\"versions\":[{\"release_id\":109,\"label\":\"1080p Cast\",\"available\":true,\"compatible\":true}],\"stream_ready\":true}";
+        var (controller, handler, path) = CreateController(jsonBody);
+        try
+        {
+            var capsResult = Assert.IsType<OkObjectResult>(controller.Capabilities());
+            var capsJson = ToJson(capsResult.Value);
+            var features = capsJson.GetProperty("features").EnumerateArray().Select(x => x.GetString()).ToList();
+            Assert.Contains("versions", features);
+            Assert.Contains("version-negotiation", features);
+
+            var statusResult = await controller.Status(
+                Guid.NewGuid(),
+                release: null,
+                CancellationToken.None,
+                maxWidth: 1920,
+                supports4k: false,
+                supportsDv: false);
+            var ok = Assert.IsType<OkObjectResult>(statusResult);
+            var json = ToJson(ok.Value);
+            Assert.Equal(109, json.GetProperty("recommended_release_id").GetInt32());
+            var reqUrl = Assert.Single(handler.Requests).RequestUri!.ToString();
+            Assert.Contains("max_width=1920", reqUrl);
+            Assert.Contains("supports_4k=0", reqUrl);
+            Assert.Contains("supports_dv=0", reqUrl);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private static (CatalogoController Controller, RecordingHandler Handler, string Path)
         CreateController(
             string body,

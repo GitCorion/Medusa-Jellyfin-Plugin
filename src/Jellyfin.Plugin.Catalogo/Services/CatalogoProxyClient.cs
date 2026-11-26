@@ -65,12 +65,22 @@ public class CatalogoProxyClient
         string key,
         int? releaseId,
         CancellationToken cancellationToken)
+        => GetStatusAsync(key, releaseId, null, null, null, cancellationToken);
+
+    public Task<JsonElement> GetStatusAsync(
+        string key,
+        int? releaseId,
+        int? maxWidth,
+        bool? supports4k,
+        bool? supportsDv,
+        CancellationToken cancellationToken)
     {
         var url = $"{BaseUrl}/status?key={Uri.EscapeDataString(key)}";
         if (releaseId is not null)
         {
             url += $"&release={releaseId.Value}";
         }
+        url = AppendCapabilities(url, maxWidth, supports4k, supportsDv);
 
         return SendAsync(HttpMethod.Get, url, cancellationToken);
     }
@@ -100,6 +110,16 @@ public class CatalogoProxyClient
         int? releaseId,
         int? runtimeSeconds,
         CancellationToken cancellationToken)
+        => PrepareAsync(key, releaseId, runtimeSeconds, null, null, null, cancellationToken);
+
+    public Task<JsonElement> PrepareAsync(
+        string key,
+        int? releaseId,
+        int? runtimeSeconds,
+        int? maxWidth,
+        bool? supports4k,
+        bool? supportsDv,
+        CancellationToken cancellationToken)
     {
         var url = $"{BaseUrl}/prepare?key={Uri.EscapeDataString(key)}";
         if (releaseId is not null)
@@ -110,9 +130,31 @@ public class CatalogoProxyClient
         {
             url += $"&runtime={runtimeSeconds.Value}";
         }
+        url = AppendCapabilities(url, maxWidth, supports4k, supportsDv);
 
         return SendAsync(
             HttpMethod.Post, url, cancellationToken, PrepareTimeoutSeconds);
+    }
+
+    private static string AppendCapabilities(
+        string url,
+        int? maxWidth,
+        bool? supports4k,
+        bool? supportsDv)
+    {
+        if (maxWidth is > 0)
+        {
+            url += $"&max_width={maxWidth.Value}";
+        }
+        if (supports4k is not null)
+        {
+            url += $"&supports_4k={(supports4k.Value ? 1 : 0)}";
+        }
+        if (supportsDv is not null)
+        {
+            url += $"&supports_dv={(supportsDv.Value ? 1 : 0)}";
+        }
+        return url;
     }
 
     /// <summary>
