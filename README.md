@@ -1,67 +1,69 @@
-# Medusa — Jellyfin companion plugin
+# Medusa — Plugin para Jellyfin
 
 <p align="center"><img src="assets/medusa-wordmark.png" width="320" alt="Medusa"></p>
 
-Jellyfin companion plugin for [TOD](https://github.com/GitCorion/TOD) (Torrent on
-Demand). It translates `.strm` items into TOD keys and exposes playback status,
-on-demand preparation, playback leases, and fast-start media metadata through
-Jellyfin's API.
+Plugin de Jellyfin para [TOD](https://github.com/GitCorion/TOD) (*Torrent on
+Demand*). Traduce los ítems `.strm` a claves de TOD y expone en la API de
+Jellyfin el estado de descarga, la preparación bajo demanda, los *leases* de
+reproducción y los metadatos de arranque rápido.
 
-> **Compatibility:** Preserves the plugin GUID (`50c67d89-41de-4a95-84e2-4511775d4965`)
-> and configuration. Medusa detects the plugin via `GET /Medusa/Capabilities`.
+> **Compatibilidad:** Conserva el GUID (`50c67d89-41de-4a95-84e2-4511775d4965`)
+> y la configuración. La app Medusa detecta el plugin mediante
+> `GET /Medusa/Capabilities`.
 
-The plugin does **not** download torrents itself; it delegates status,
-preparation, and streaming to the local TOD service.
+El plugin **no** descarga torrents por su cuenta: delega el estado, la
+preparación y el streaming en el servicio local de TOD.
 
-## The Medusa stack
+## El ecosistema Medusa
 
-| Repository | Role |
+| Repositorio | Función |
 |---|---|
-| [Medusa](https://github.com/GitCorion/Medusa) | Native Android TV client. Plays through Jellyfin. |
-| **Medusa-Jellyfin-Plugin** (this repository) | Jellyfin companion API. Exposes `/Medusa/Capabilities`, `/Status`, `/Prepare`, and `/Lease`, and enables fast `.strm` startup. |
-| [TOD](https://github.com/GitCorion/TOD) | Library, releases, qBittorrent queue, `.strm` generation, and range streaming. |
+| [Medusa](https://github.com/GitCorion/Medusa) | Cliente nativo para Android TV. Reproduce a través de Jellyfin. |
+| **Medusa-Jellyfin-Plugin** (este repositorio) | API puente en Jellyfin. Expone `/Medusa/Capabilities`, `/Status`, `/Prepare` y `/Lease`, y acelera el arranque de los `.strm`. |
+| [TOD](https://github.com/GitCorion/TOD) | Biblioteca, releases, cola de qBittorrent, generación de `.strm` y streaming por rangos. |
 
-Medusa communicates exclusively with Jellyfin; this plugin bridges that
-conversation to TOD so clients can display buffering progress, trigger cold
-starts, and follow source switches.
+Medusa habla únicamente con Jellyfin; este plugin traduce esa comunicación
+hacia TOD para mostrar el progreso del buffer, iniciar descargas bajo demanda y
+seguir los cambios de fuente.
 
-## Requirements
+## Requisitos
 
-- Jellyfin **12.4+** (`.NET 10` runtime)
-- TOD reachable from the Jellyfin server (typically `http://127.0.0.1:8773`)
-- TOD endpoints `/status`, `/prepare`, `/lease`, and `/media-info` enabled
+- Jellyfin **12.4+** (runtime `.NET 10`)
+- Servicio TOD accesible desde el servidor de Jellyfin (habitualmente `http://127.0.0.1:8773`)
+- Endpoints `/status`, `/prepare`, `/lease` y `/media-info` activos en TOD
 
-## Install
+## Instalación
 
-Add this repository URL in Jellyfin:
+Añade la URL del repositorio en Jellyfin:
 
 ```text
-Dashboard → Plugins → Repositories → +
+Panel → Plugins → Repositorios → +
 https://raw.githubusercontent.com/GitCorion/Medusa-Jellyfin-Plugin/main/manifest.json
 ```
 
-Install **Medusa** from the plugin catalog and restart Jellyfin. Future updates
-are handled by Jellyfin's **Update Plugins** scheduled task.
+Instala **Medusa** desde el catálogo de plugins y reinicia Jellyfin. Las
+actualizaciones posteriores se gestionan con la tarea programada **Actualizar
+plugins**.
 
-For manual installation, stop Jellyfin, extract the DLL from the release zip
-into `<Jellyfin data>/plugins/Medusa_<version>/`, and start Jellyfin again.
+Para instalación manual, detén Jellyfin, extrae la DLL del `.zip` de la release
+en `<datos de Jellyfin>/plugins/Medusa_<versión>/` y vuelve a arrancar Jellyfin.
 
-## Configure
+## Configuración
 
-Open **Dashboard → Plugins → Medusa** and set:
+En **Panel → Plugins → Medusa** configura:
 
-- **TOD proxy URL**: local TOD address (default `http://127.0.0.1:8773`).
-- **Timeout / Prepare timeout**: request timeouts for status and cold-start
-  preparation.
-- **Native mode (experimental)**: disabled by default. Allows non-Medusa
-  Jellyfin clients to trigger cold `.strm` preparation from `PlaybackInfo` and
-  optionally wait up to 30 s (`Native prebuffer`) before returning media
-  sources.
+- **TOD proxy URL**: dirección local de TOD (por defecto `http://127.0.0.1:8773`).
+- **Timeout / Prepare timeout**: tiempos máximos para consultas de estado y
+  arranque en frío.
+- **Native mode (experimental)**: desactivado por defecto. Permite que clientes
+  de Jellyfin distintos de Medusa inicien la preparación de un `.strm` en frío
+  desde `PlaybackInfo` y esperen opcionalmente hasta 30 s (`Native prebuffer`)
+  antes de devolver las fuentes multimedia.
 
 ## API
 
-All endpoints are served under `/Medusa/*` by Jellyfin (with `/Catalogo/*`
-retained as a legacy alias).
+Todos los endpoints se sirven bajo `/Medusa/*` en Jellyfin (con `/Catalogo/*`
+mantenido como alias de compatibilidad).
 
 ### Capabilities
 
@@ -88,8 +90,8 @@ GET /Medusa/Capabilities
 }
 ```
 
-Anonymous endpoint used for client capability detection before playback.
-`Status`, `Prepare`, and `Lease` require standard Jellyfin authentication.
+Endpoint anónimo para detectar las capacidades del plugin antes de reproducir.
+`Status`, `Prepare` y `Lease` requieren autenticación estándar de Jellyfin.
 
 ### Status
 
@@ -98,8 +100,8 @@ GET /Medusa/Status/{itemId}
 GET /Medusa/Status/{itemId}?release=109&maxWidth=1920&supports4k=false&supportsDv=false
 ```
 
-Reads the item's `.strm`, extracts the TOD `key`/`release`, and returns the
-live TOD status along with compatible version negotiation:
+Lee el `.strm` del ítem, extrae la clave `key` y el `release` de TOD y devuelve
+el estado en vivo junto con la negociación de versiones compatibles:
 
 ```json
 {
@@ -121,7 +123,7 @@ live TOD status along with compatible version negotiation:
 }
 ```
 
-For non-TOD items:
+Para ítems que no pertenecen a TOD:
 
 ```json
 { "is_catalog": false, "item_id": "..." }
@@ -133,8 +135,9 @@ For non-TOD items:
 POST /Medusa/Prepare/{itemId}
 ```
 
-Starts on-demand preparation in TOD without streaming video. Clients should poll
-`Status` until `stream_ready` is `true`, then start normal Jellyfin playback.
+Inicia la preparación bajo demanda en TOD sin devolver vídeo. El cliente debe
+consultar `Status` periódicamente hasta que `stream_ready` sea `true` e iniciar
+entonces la reproducción normal en Jellyfin.
 
 ```json
 {
@@ -156,21 +159,22 @@ POST /Medusa/Lease/{itemId}
 DELETE /Medusa/Lease/{itemId}
 ```
 
-Maintains or releases an active playback lease in TOD for the given item.
+Mantiene o libera un *lease* de reproducción activo en TOD para el ítem
+indicado.
 
-## Client flow
+## Flujo del cliente
 
 1. `POST /Items/{itemId}/PlaybackInfo`.
-2. Inspect `MediaSources[].Path`.
-3. If it ends with `.strm`, call `GET /Medusa/Status/{itemId}`.
-4. If `is_catalog` is `true` and `stream_ready` is `false`:
-   - call `POST /Medusa/Prepare/{itemId}`;
-   - display a buffering overlay and poll `Status` every 1–2 seconds.
-5. Once `stream_ready` is `true`, start normal Jellyfin playback so transcoding,
-   subtitles, and watch progress remain handled by Jellyfin.
-6. If `is_catalog` is `false`, play normally.
+2. Comprobar `MediaSources[].Path`.
+3. Si termina en `.strm`, llamar a `GET /Medusa/Status/{itemId}`.
+4. Si `is_catalog` es `true` y `stream_ready` es `false`:
+   - llamar a `POST /Medusa/Prepare/{itemId}`;
+   - mostrar el estado de buffering y consultar `Status` cada 1–2 segundos.
+5. Cuando `stream_ready` sea `true`, reproducir usando el flujo normal de
+   Jellyfin para conservar transcodificación, subtítulos y progreso visto.
+6. Si `is_catalog` es `false`, reproducir normalmente.
 
-## Build
+## Compilación
 
 ```bash
 dotnet restore src/Jellyfin.Plugin.Catalogo/Jellyfin.Plugin.Catalogo.csproj
@@ -178,13 +182,13 @@ dotnet build src/Jellyfin.Plugin.Catalogo/Jellyfin.Plugin.Catalogo.csproj -c Rel
 dotnet test tests/Jellyfin.Plugin.Catalogo.Tests/Jellyfin.Plugin.Catalogo.Tests.csproj -c Release
 ```
 
-## Security
+## Seguridad
 
-- Keep TOD bound to `127.0.0.1` or a private LAN/WireGuard interface.
-- `/prepare` and `/lease` on TOD are restricted to loopback by default.
-- `Status`, `Prepare`, and `Lease` require Jellyfin authentication.
-- Do not expose TOD's `/play?...&download=1` directly to the Internet.
+- Mantener TOD escuchando en `127.0.0.1` o en una red privada LAN/WireGuard.
+- `/prepare` y `/lease` en TOD están restringidos a loopback por defecto.
+- `Status`, `Prepare` y `Lease` requieren autenticación en Jellyfin.
+- No exponer `/play?...&download=1` de TOD directamente a Internet.
 
-## License
+## Licencia
 
-GPL-3.0. See [LICENSE](LICENSE).
+GPL-3.0. Consulta [LICENSE](LICENSE).
