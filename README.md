@@ -5,26 +5,16 @@
 Plugin de Jellyfin para [TOD](https://github.com/GitCorion/TOD) (*Torrent on
 Demand*). Traduce los ítems `.strm` a claves de TOD y expone en la API de
 Jellyfin el estado de descarga, la preparación bajo demanda, los *leases* de
-reproducción y los metadatos de arranque rápido.
-
-> **Compatibilidad:** Conserva el GUID (`50c67d89-41de-4a95-84e2-4511775d4965`)
-> y la configuración. La app Medusa detecta el plugin mediante
-> `GET /Medusa/Capabilities`.
-
-El plugin **no** descarga torrents por su cuenta: delega el estado, la
-preparación y el streaming en el servicio local de TOD.
+reproducción y la negociación de versiones compatibles. No descarga torrents
+por su cuenta: delega el estado, la preparación y el streaming en TOD.
 
 ## El ecosistema Medusa
 
 | Repositorio | Función |
 |---|---|
-| [Medusa](https://github.com/GitCorion/Medusa) | Cliente nativo para Android TV. Reproduce a través de Jellyfin. |
-| **Medusa-Jellyfin-Plugin** (este repositorio) | API puente en Jellyfin. Expone `/Medusa/Capabilities`, `/Status`, `/Prepare` y `/Lease`, y acelera el arranque de los `.strm`. |
-| [TOD](https://github.com/GitCorion/TOD) | Biblioteca, releases, cola de qBittorrent, generación de `.strm` y streaming por rangos. |
-
-Medusa habla únicamente con Jellyfin; este plugin traduce esa comunicación
-hacia TOD para mostrar el progreso del buffer, iniciar descargas bajo demanda y
-seguir los cambios de fuente.
+| [Medusa](https://github.com/GitCorion/Medusa) | Cliente nativo para Android TV y tablet. Reproduce a través de Jellyfin. |
+| **Medusa-Jellyfin-Plugin** (este repositorio) | API puente en Jellyfin (`/Medusa/Capabilities`, `/Status`, `/Prepare` y `/Lease`) y arranque rápido de `.strm`. |
+| [TOD](https://github.com/GitCorion/TOD) | Biblioteca bajo demanda: releases, cola de qBittorrent, `.strm` y streaming por rangos. |
 
 ## Requisitos
 
