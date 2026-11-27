@@ -40,7 +40,9 @@ public sealed class TraktTokenService
         CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        if (creds.ExpiresIn <= 0
+        if (string.IsNullOrWhiteSpace(creds.RefreshToken)
+            || string.IsNullOrWhiteSpace(creds.ClientId)
+            || creds.ExpiresIn <= 0
             || creds.CreatedAt <= 0
             || now < creds.CreatedAt + creds.ExpiresIn - 3600)
         {

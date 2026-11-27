@@ -114,7 +114,9 @@ public class CatalogoController : ControllerBase
             tmdb_configured = !string.IsNullOrWhiteSpace(
                 Plugin.Instance?.Configuration.TmdbApiKey),
             trakt_synced = credentials is not null,
-            trakt_username = credentials?.Username ?? string.Empty,
+            trakt_username = string.IsNullOrWhiteSpace(credentials?.Username)
+                ? null
+                : credentials.Username,
             trakt_revision = credentials?.Revision ?? 0
         });
     }
@@ -652,13 +654,16 @@ public class CatalogoController : ControllerBase
 
     private static object TraktDto(TraktCredentials credentials) => new
     {
+        configured = !string.IsNullOrWhiteSpace(credentials.AccessToken),
         access_token = credentials.AccessToken,
         refresh_token = credentials.RefreshToken,
         expires_in = credentials.ExpiresIn,
         created_at = credentials.CreatedAt,
         client_id = credentials.ClientId,
         client_secret = credentials.ClientSecret,
-        username = credentials.Username,
+        username = string.IsNullOrWhiteSpace(credentials.Username)
+            ? null
+            : credentials.Username,
         revision = credentials.Revision,
         updated_at_utc = credentials.UpdatedAtUtc
     };

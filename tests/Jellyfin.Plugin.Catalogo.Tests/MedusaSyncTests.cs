@@ -1,7 +1,12 @@
 using System.Net;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using Jellyfin.Plugin.Catalogo.Api;
 using Jellyfin.Plugin.Catalogo.Services;
+using MediaBrowser.Controller.Library;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -214,6 +219,102 @@ public class MedusaSyncTests
 
         Assert.Equal(404, status);
         Assert.Equal(upstream, body);
+    }
+
+
+    [Fact]
+    public async Task Controller_TraktCredentials_IncludesConfiguredFlagAndNullEmptyUsername()
+    {
+        var path = NewPath();
+        try
+        {
+            var store = new MedusaDataStore(path, NullLogger<MedusaDataStore>.Instance);
+            var http = new HttpClient(new CapturingHandler("{}"));
+            var trakt = new TraktTokenService(http, store, NullLogger<TraktTokenService>.Instance);
+            var proxy = new CatalogoProxyClient(http);
+            var library = System.Reflection.DispatchProxy.Create<ILibraryManager, MedusaContractTests.LibraryManagerProxy>();
+            var controller = new CatalogoController(
+                library,
+                proxy,
+                NullLogger<CatalogoController>.Instance,
+                store: store,
+                trakt: trakt);
+            var userId = Guid.NewGuid();
+            controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+                    {
+                        new Claim("Jellyfin-UserId", userId.ToString())
+                    }))
+                }
+            };
+
+            var emptyGet = Assert.IsType<OkObjectResult>(
+                await controller.GetTraktCredentials(CancellationToken.None));
+            var emptyJson = JsonSerializer.SerializeToElement(emptyGet.Value!, emptyGet.Value!.GetType());
+            Assert.False(emptyJson.GetProperty("configured").GetBoolean());
+
+            var putResult = Assert.IsType<OkObjectResult>(
+                await controller.PutTraktCredentials(new TraktCredentialsInput
+                {
+                    AccessToken = "tok-1",
+                    ClientId = "cid-1",
+                    Username = ""
+                }));
+            var putJson = JsonSerializer.SerializeToElement(putResult.Value!, putResult.Value!.GetType());
+            Assert.True(putJson.GetProperty("configured").GetBoolean());
+            Assert.Equal("tok-1", putJson.GetProperty("access_token").GetString());
+            Assert.Equal(JsonValueKind.Null, putJson.GetProperty("username").ValueKind);
+
+            var cfgResult = Assert.IsType<OkObjectResult>(await controller.GetConfig());
+            var cfgJson = JsonSerializer.SerializeToElement(cfgResult.Value!, cfgResult.Value!.GetType());
+            Assert.True(cfgJson.GetProperty("trakt_synced").GetBoolean());
+            Assert.Equal(JsonValueKind.Null, cfgJson.GetProperty("trakt_username").ValueKind);
+
+            var getResult = Assert.IsType<OkObjectResult>(
+                await controller.GetTraktCredentials(CancellationToken.None));
+            var getJson = JsonSerializer.SerializeToElement(getResult.Value!, getResult.Value!.GetType());
+            Assert.True(getJson.GetProperty("configured").GetBoolean());
+            Assert.Equal("tok-1", getJson.GetProperty("access_token").GetString());
+            Assert.Equal(1, getJson.GetProperty("revision").GetInt32());
+        }
+        finally
+        {
+            Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task TraktTokenService_SkipsRefreshWhenRefreshTokenIsEmpty()
+    {
+        var path = NewPath();
+        try
+        {
+            var store = new MedusaDataStore(path, NullLogger<MedusaDataStore>.Instance);
+            var handler = new CapturingHandler("{}");
+            var service = new TraktTokenService(
+                new HttpClient(handler), store, NullLogger<TraktTokenService>.Instance);
+            var creds = new TraktCredentials
+            {
+                AccessToken = "manual-token",
+                RefreshToken = "",
+                ExpiresIn = 3600,
+                CreatedAt = 1,
+                ClientId = "cid-1",
+                Revision = 1
+            };
+
+            var result = await service.EnsureFreshAsync("u1", creds, CancellationToken.None);
+
+            Assert.Equal("manual-token", result.AccessToken);
+            Assert.Empty(handler.Requests);
+        }
+        finally
+        {
+            Delete(path);
+        }
     }
 
     private static TraktCredentials Credentials(string accessToken, string clientId) => new()
