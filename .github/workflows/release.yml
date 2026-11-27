@@ -20,8 +20,10 @@ jobs:
           dotnet-version: "10.0.x"
       - name: Publish
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           dotnet publish src/Jellyfin.Plugin.Catalogo/Jellyfin.Plugin.Catalogo.csproj \
-            -c Release -o artifacts/publish
+            -c Release -p:Version="${VERSION}" -p:AssemblyVersion="${VERSION}" -p:FileVersion="${VERSION}" \
+            -o artifacts/publish
       - name: Package
         run: |
           VERSION="${GITHUB_REF_NAME#v}"

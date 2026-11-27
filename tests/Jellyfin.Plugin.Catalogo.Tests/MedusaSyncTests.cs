@@ -317,6 +317,20 @@ public class MedusaSyncTests
         }
     }
 
+
+    [Fact]
+    public void ConfigPage_EmbeddedResourceContainsTmdbApiKeyInput()
+    {
+        var asm = typeof(Jellyfin.Plugin.Catalogo.Plugin).Assembly;
+        using var stream = asm.GetManifestResourceStream(
+            "Jellyfin.Plugin.Catalogo.Configuration.configPage.html");
+        Assert.NotNull(stream);
+        using var reader = new StreamReader(stream!);
+        var html = reader.ReadToEnd();
+        Assert.Contains("id=\"TmdbApiKey\"", html);
+        Assert.Contains("config.TmdbApiKey", html);
+    }
+
     private static TraktCredentials Credentials(string accessToken, string clientId) => new()
     {
         AccessToken = accessToken,
