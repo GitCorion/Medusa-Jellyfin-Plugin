@@ -4,7 +4,7 @@ Documento de referencia para cambiar el plugin sin romper la reproducción de
 Medusa. No describe lo que el plugin hace hoy en abstracto: describe lo que
 Medusa consume de verdad.
 
-- Plugin: `Jellyfin.Plugin.Catalogo` 1.1.4.0 (`89b7122`).
+- Plugin: `Jellyfin.Plugin.Catalogo` 1.2.0.0 (contrato congelado desde 1.1.4.0).
 - Medusa: `main` (`e1ad950`) y build `2.4.2-beta.6`.
 - Jellyfin: 12.4.
 
@@ -110,6 +110,17 @@ semántica sin revisar `PlaybackLeaseService`.
 
 Se mantiene para la app estable 2.4.1. No retirar mientras haya clientes
 estables.
+
+### Endpoints aditivos de 1.2.0.0
+
+`GET /Medusa/Config`, `GET|PUT|DELETE /Medusa/Trakt/Credentials` y
+`GET /Medusa/Tmdb/{**path}` son **aditivos**: `Capabilities` solo añade las
+features `tmdb-proxy` y `trakt-sync` y el campo `tmdb_configured` (booleano,
+sin la clave). No cambian `api_version=1`, ni las features `status`/`prepare`,
+ni los DTO de `Status`/`Prepare`/`Lease`. Tampoco tocan
+`CatalogoMediaSourceManager`, los filtros, los leases ni la negociación de
+versiones: el flujo de reproducción de Medusa sigue siendo exactamente el
+descrito arriba, con o sin credenciales Trakt o clave TMDB configuradas.
 
 ## 3. Invariantes que no se deben romper
 

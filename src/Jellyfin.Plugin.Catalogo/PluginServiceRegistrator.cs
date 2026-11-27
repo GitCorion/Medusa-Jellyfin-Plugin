@@ -21,6 +21,9 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         IServerApplicationHost applicationHost)
     {
         serviceCollection.AddHttpClient<CatalogoProxyClient>();
+        serviceCollection.AddSingleton<MedusaDataStore>();
+        serviceCollection.AddHttpClient<TmdbProxyClient>();
+        serviceCollection.AddHttpClient<TraktTokenService>();
         serviceCollection.AddHttpContextAccessor();
         serviceCollection.AddHostedService<PlaybackLeaseService>();
         serviceCollection

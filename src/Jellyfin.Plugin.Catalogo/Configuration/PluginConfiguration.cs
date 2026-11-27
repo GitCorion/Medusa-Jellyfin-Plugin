@@ -37,4 +37,10 @@ public class PluginConfiguration : BasePluginConfiguration
     /// waits. Clamped to 0-30 seconds by the playback path.
     /// </summary>
     public int NativePrebufferSeconds { get; set; }
+
+    /// <summary>
+    /// Gets or sets the TMDB API key (v3) used by the server-side TMDB proxy
+    /// and by Medusa. It is never sent to devices via Capabilities.
+    /// </summary>
+    public string TmdbApiKey { get; set; } = string.Empty;
 }

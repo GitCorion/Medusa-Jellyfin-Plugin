@@ -33,6 +33,13 @@
                         request. This timeout only applies to Prepare.
                     </div>
                 </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB API key</label>
+                    <input id="TmdbApiKey" name="TmdbApiKey" type="password" is="emby-input" autocomplete="new-password" />
+                    <div class="fieldDescription">
+                        TMDB API key (v3) usada por Medusa; no se envía a los dispositivos.
+                    </div>
+                </div>
                 <div class="checkboxContainer checkboxContainer-withDescription">
                     <label class="emby-checkbox-label">
                         <input id="NativeMode" name="NativeMode" type="checkbox" is="emby-checkbox" />
@@ -80,6 +87,8 @@
                     config.NativeMode === true;
                 document.querySelector('#NativePrebufferSeconds').value =
                     config.NativePrebufferSeconds || 0;
+                document.querySelector('#TmdbApiKey').value =
+                    config.TmdbApiKey || '';
             });
         });
 
@@ -97,6 +106,7 @@
                 config.NativePrebufferSeconds =
                     Math.max(0, Math.min(30,
                         parseInt(document.querySelector('#NativePrebufferSeconds').value, 10) || 0));
+                config.TmdbApiKey = document.querySelector('#TmdbApiKey').value.trim();
                 ApiClient.updatePluginConfiguration(pluginId, config).then(function () {
                     Dashboard.processPluginConfigurationUpdateResult();
                 });

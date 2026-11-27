@@ -30,6 +30,13 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// </summary>
     public static Plugin? Instance { get; private set; }
 
+    /// <summary>
+    /// Gets the Jellyfin directory where plugin configuration files live.
+    /// ApplicationPaths is protected in the base class, so services reach it
+    /// through this property.
+    /// </summary>
+    public string PluginConfigurationsDirectory => ApplicationPaths.PluginConfigurationsPath;
+
     /// <inheritdoc />
     public override string Name => "Medusa";
 
