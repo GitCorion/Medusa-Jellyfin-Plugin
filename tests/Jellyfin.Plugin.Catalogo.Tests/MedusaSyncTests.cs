@@ -329,6 +329,9 @@ public class MedusaSyncTests
         var html = reader.ReadToEnd();
         Assert.Contains("id=\"TmdbApiKey\"", html);
         Assert.Contains("config.TmdbApiKey", html);
+        var scriptIdx = html.IndexOf("<script", StringComparison.Ordinal);
+        var lastDivIdx = html.LastIndexOf("</div>", StringComparison.Ordinal);
+        Assert.True(scriptIdx > 0 && scriptIdx < lastDivIdx, "script must live inside data-role=page");
     }
 
     private static TraktCredentials Credentials(string accessToken, string clientId) => new()
