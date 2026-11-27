@@ -16,28 +16,31 @@
             <form id="MedusaConfigForm">
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="ProxyUrl">TOD proxy URL</label>
-                    <input id="ProxyUrl" name="ProxyUrl" type="url" is="emby-input" />
+                    <input id="ProxyUrl" name="ProxyUrl" type="url" is="emby-input" value="http://127.0.0.1:8773" placeholder="http://127.0.0.1:8773" />
                     <div class="fieldDescription">
-                        Local URL of the TOD proxy used by Medusa, for example http://127.0.0.1:8773.
+                        Local URL of the TOD proxy used by Medusa. Default: http://127.0.0.1:8773.
                     </div>
                 </div>
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="TimeoutSeconds">Timeout (seconds)</label>
-                    <input id="TimeoutSeconds" name="TimeoutSeconds" type="number" min="2" max="120" is="emby-input" />
+                    <input id="TimeoutSeconds" name="TimeoutSeconds" type="number" min="2" max="120" is="emby-input" value="15" placeholder="15" />
+                    <div class="fieldDescription">
+                        HTTP timeout for TOD status requests. Default: 15 seconds (range: 2–120).
+                    </div>
                 </div>
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="PrepareTimeoutSeconds">Prepare timeout (seconds)</label>
-                    <input id="PrepareTimeoutSeconds" name="PrepareTimeoutSeconds" type="number" min="5" max="120" is="emby-input" />
+                    <input id="PrepareTimeoutSeconds" name="PrepareTimeoutSeconds" type="number" min="5" max="120" is="emby-input" value="40" placeholder="40" />
                     <div class="fieldDescription">
                         Starting a cold torrent can take longer than a status
-                        request. This timeout only applies to Prepare.
+                        request. This timeout only applies to Prepare. Default: 40 seconds (range: 5–120).
                     </div>
                 </div>
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB API key</label>
-                    <input id="TmdbApiKey" name="TmdbApiKey" type="password" is="emby-input" autocomplete="new-password" />
+                    <input id="TmdbApiKey" name="TmdbApiKey" type="password" is="emby-input" autocomplete="new-password" placeholder="Pega tu clave API v3 de TMDB" />
                     <div class="fieldDescription">
-                        TMDB API key (v3) usada por Medusa; no se envía a los dispositivos.
+                        Clave API de TMDB (v3). El servidor actúa como proxy para todos tus dispositivos Medusa: la usan sin tener que configurarla ni descargar una copia de la clave.
                     </div>
                 </div>
                 <div class="checkboxContainer checkboxContainer-withDescription">
@@ -53,11 +56,11 @@
                 </div>
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="NativePrebufferSeconds">Native prebuffer (seconds)</label>
-                    <input id="NativePrebufferSeconds" name="NativePrebufferSeconds" type="number" min="0" max="30" is="emby-input" />
+                    <input id="NativePrebufferSeconds" name="NativePrebufferSeconds" type="number" min="0" max="30" is="emby-input" value="0" placeholder="0" />
                     <div class="fieldDescription">
                         How long a native PlaybackInfo waits for the stream after
                         starting a prepare. Zero returns immediately. Medusa never
-                        waits.
+                        waits. Default: 0 seconds (range: 0–30).
                     </div>
                 </div>
                 <div>
@@ -71,42 +74,42 @@
 </div>
 <script type="text/javascript">
     (function () {
-        var pluginId = '50c67d89-41de-4a95-84e2-4511775d4965';
-        var page = document.querySelector('#MedusaConfigPage');
-        var form = document.querySelector('#MedusaConfigForm');
+        var pluginId = 50c67d89-41de-4a95-84e2-4511775d4965;
+        var page = document.querySelector(#MedusaConfigPage);
+        var form = document.querySelector(#MedusaConfigForm);
 
-        page.addEventListener('pageshow', function () {
+        page.addEventListener(pageshow, function () {
             ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-                document.querySelector('#ProxyUrl').value =
-                    config.ProxyUrl || 'http://127.0.0.1:8773';
-                document.querySelector('#TimeoutSeconds').value =
+                document.querySelector(#ProxyUrl).value =
+                    config.ProxyUrl || http://127.0.0.1:8773;
+                document.querySelector(#TimeoutSeconds).value =
                     config.TimeoutSeconds || 15;
-                document.querySelector('#PrepareTimeoutSeconds').value =
+                document.querySelector(#PrepareTimeoutSeconds).value =
                     config.PrepareTimeoutSeconds || 40;
-                document.querySelector('#NativeMode').checked =
+                document.querySelector(#NativeMode).checked =
                     config.NativeMode === true;
-                document.querySelector('#NativePrebufferSeconds').value =
+                document.querySelector(#NativePrebufferSeconds).value =
                     config.NativePrebufferSeconds || 0;
-                document.querySelector('#TmdbApiKey').value =
-                    config.TmdbApiKey || '';
+                document.querySelector(#TmdbApiKey).value =
+                    config.TmdbApiKey || ;
             });
         });
 
-        form.addEventListener('submit', function (event) {
+        form.addEventListener(submit, function (event) {
             event.preventDefault();
             ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-                config.ProxyUrl = document.querySelector('#ProxyUrl').value.trim();
+                config.ProxyUrl = document.querySelector(#ProxyUrl).value.trim();
                 config.TimeoutSeconds =
-                    parseInt(document.querySelector('#TimeoutSeconds').value, 10) || 15;
+                    parseInt(document.querySelector(#TimeoutSeconds).value, 10) || 15;
                 config.PrepareTimeoutSeconds =
                     Math.max(5, Math.min(120,
-                        parseInt(document.querySelector('#PrepareTimeoutSeconds').value, 10) || 40));
+                        parseInt(document.querySelector(#PrepareTimeoutSeconds).value, 10) || 40));
                 config.NativeMode =
-                    document.querySelector('#NativeMode').checked === true;
+                    document.querySelector(#NativeMode).checked === true;
                 config.NativePrebufferSeconds =
                     Math.max(0, Math.min(30,
-                        parseInt(document.querySelector('#NativePrebufferSeconds').value, 10) || 0));
-                config.TmdbApiKey = document.querySelector('#TmdbApiKey').value.trim();
+                        parseInt(document.querySelector(#NativePrebufferSeconds).value, 10) || 0));
+                config.TmdbApiKey = document.querySelector(#TmdbApiKey).value.trim();
                 ApiClient.updatePluginConfiguration(pluginId, config).then(function () {
                     Dashboard.processPluginConfigurationUpdateResult();
                 });

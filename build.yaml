@@ -1,7 +1,7 @@
 ---
 name: "Medusa"
 guid: "50c67d89-41de-4a95-84e2-4511775d4965"
-version: "1.2.0.2"
+version: "1.2.0.3"
 targetAbi: "12.4.0.0"
 framework: "net10.0"
 overview: "Medusa companion API and fast start for the TOD on-demand torrent proxy."
