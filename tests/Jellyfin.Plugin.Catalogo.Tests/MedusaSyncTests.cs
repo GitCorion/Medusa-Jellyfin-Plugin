@@ -319,19 +319,25 @@ public class MedusaSyncTests
 
 
     [Fact]
-    public void ConfigPage_EmbeddedResourceContainsTmdbApiKeyInput()
+    public void ConfigPage_EmbeddedHtmlAndControllerJsExist()
     {
         var asm = typeof(Jellyfin.Plugin.Catalogo.Plugin).Assembly;
-        using var stream = asm.GetManifestResourceStream(
+        using var htmlStream = asm.GetManifestResourceStream(
             "Jellyfin.Plugin.Catalogo.Configuration.configPage.html");
-        Assert.NotNull(stream);
-        using var reader = new StreamReader(stream!);
-        var html = reader.ReadToEnd();
+        Assert.NotNull(htmlStream);
+        using var htmlReader = new StreamReader(htmlStream!);
+        var html = htmlReader.ReadToEnd();
+        Assert.Contains("data-controller=\"__plugin/medusajs\"", html);
         Assert.Contains("id=\"TmdbApiKey\"", html);
-        Assert.Contains("config.TmdbApiKey", html);
-        var scriptIdx = html.IndexOf("<script", StringComparison.Ordinal);
-        var lastDivIdx = html.LastIndexOf("</div>", StringComparison.Ordinal);
-        Assert.True(scriptIdx > 0 && scriptIdx < lastDivIdx, "script must live inside data-role=page");
+
+        using var jsStream = asm.GetManifestResourceStream(
+            "Jellyfin.Plugin.Catalogo.Configuration.configPage.js");
+        Assert.NotNull(jsStream);
+        using var jsReader = new StreamReader(jsStream!);
+        var js = jsReader.ReadToEnd();
+        Assert.Contains("export default function", js);
+        Assert.Contains("config.TmdbApiKey", js);
+        Assert.Contains("viewshow", js);
     }
 
     private static TraktCredentials Credentials(string accessToken, string clientId) => new()

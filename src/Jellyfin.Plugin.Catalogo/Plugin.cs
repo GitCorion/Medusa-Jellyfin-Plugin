@@ -57,6 +57,12 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 Name = "medusa",
                 EmbeddedResourcePath =
                     "Jellyfin.Plugin.Catalogo.Configuration.configPage.html"
+            },
+            new PluginPageInfo
+            {
+                Name = "medusajs",
+                EmbeddedResourcePath =
+                    "Jellyfin.Plugin.Catalogo.Configuration.configPage.js"
             }
         };
     }
