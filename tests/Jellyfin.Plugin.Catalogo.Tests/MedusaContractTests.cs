@@ -220,6 +220,250 @@ public class MedusaContractTests
         }
     }
 
+    [Fact]
+    public async Task Status_WhenPinnedReleaseUnavailableAfterSwitch_FallsBackToActiveAlternative()
+    {
+        const string deadPinnedBody = """
+            {
+              "key": "movie:tmdb:200085",
+              "release_id": 64605,
+              "stream_generation": 1,
+              "stream_switch_reason": "buffer_stalled",
+              "stream_ready": false,
+              "state": "UNAVAILABLE",
+              "playback_state": "unavailable",
+              "source": "unavailable",
+              "reason": "stream_bad_swarm",
+              "progress": 0.0,
+              "speed_bps": 0,
+              "recommended_release_id": 64604,
+              "versions": [
+                {"release_id": 64604, "label": "1080p Cast", "available": true, "compatible": true},
+                {"release_id": 64605, "label": "1080p Cast", "available": false, "compatible": true}
+              ]
+            }
+            """;
+        const string activeFallbackBody = """
+            {
+              "key": "movie:tmdb:200085",
+              "release_id": 64604,
+              "stream_generation": 1,
+              "stream_switch_reason": "buffer_stalled",
+              "stream_ready": true,
+              "state": "DOWNLOADING",
+              "playback_state": "ready",
+              "source": "torrent",
+              "progress": 0.35,
+              "speed_bps": 75972137,
+              "recommended_release_id": 64604,
+              "versions": [
+                {"release_id": 64604, "label": "1080p Cast", "available": true, "compatible": true},
+                {"release_id": 64605, "label": "1080p Cast", "available": false, "compatible": true}
+              ]
+            }
+            """;
+
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.strm");
+        File.WriteAllText(path, "http://127.0.0.1:8773/play?key=movie%3Atmdb%3A200085&release=64605&download=0\n");
+        try
+        {
+            var handler = new SequenceHandler(
+                (HttpStatusCode.OK, deadPinnedBody),
+                (HttpStatusCode.OK, activeFallbackBody));
+            var proxy = new CatalogoProxyClient(new HttpClient(handler));
+            var item = new Movie
+            {
+                Path = path,
+                RunTimeTicks = 7320L * TimeSpan.TicksPerSecond
+            };
+            var library = DispatchProxy.Create<ILibraryManager, LibraryManagerProxy>();
+            ((LibraryManagerProxy)(object)library).Handler =
+                (method, _) => method.Name == nameof(ILibraryManager.GetItemById)
+                    ? item
+                    : throw new NotSupportedException(method.Name);
+
+            var controller = new CatalogoController(
+                library, proxy, NullLogger<CatalogoController>.Instance);
+
+            var result = await controller.Status(
+                Guid.NewGuid(),
+                release: 64605,
+                CancellationToken.None,
+                maxWidth: 1920,
+                supports4k: false,
+                supportsDv: false);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var json = ToJson(ok.Value);
+            Assert.Equal(64604, json.GetProperty("release_id").GetInt32());
+            Assert.Equal(64604, json.GetProperty("recommended_release_id").GetInt32());
+            var status = json.GetProperty("status");
+            Assert.Equal("DOWNLOADING", status.GetProperty("state").GetString());
+            Assert.True(status.GetProperty("stream_ready").GetBoolean());
+            Assert.Equal(64604, status.GetProperty("release_id").GetInt32());
+
+            Assert.Equal(2, handler.Requests.Count);
+            Assert.Contains("release=64605", handler.Requests[0].RequestUri!.ToString());
+            Assert.DoesNotContain("release=", handler.Requests[1].RequestUri!.ToString());
+            Assert.Contains("supports_4k=0", handler.Requests[1].RequestUri!.ToString());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Status_WhenTodRedirectsPinnedRelease_RecommendsActiveRelease()
+    {
+        const string redirectedBody = """
+            {
+              "key": "movie:tmdb:200085",
+              "release_id": 64604,
+              "recommended_release_id": 64604,
+              "stream_generation": 1,
+              "stream_switch_reason": "buffer_stalled",
+              "stream_ready": true,
+              "state": "AVAILABLE",
+              "playback_state": "idle",
+              "source": "local",
+              "reason": "auto_local_seed",
+              "progress": 1.0,
+              "tail_ready": false,
+              "versions": [
+                {"release_id": 64604, "label": "1080p Cast", "available": true, "compatible": true},
+                {"release_id": 64605, "label": "1080p Cast", "available": false, "compatible": true}
+              ]
+            }
+            """;
+        var (controller, handler, path) = CreateController(
+            redirectedBody,
+            strmUrl: "http://127.0.0.1:8773/play?key=movie%3Atmdb%3A200085&release=64605&download=0");
+        try
+        {
+            var result = await controller.Status(
+                Guid.NewGuid(), release: 64605, CancellationToken.None);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var json = ToJson(ok.Value);
+            Assert.Equal(64604, json.GetProperty("release_id").GetInt32());
+            Assert.Equal(64604, json.GetProperty("recommended_release_id").GetInt32());
+            var status = json.GetProperty("status");
+            Assert.True(status.GetProperty("stream_ready").GetBoolean());
+            Assert.False(status.GetProperty("tail_ready").GetBoolean());
+
+            var request = Assert.Single(handler.Requests).RequestUri!.ToString();
+            Assert.Contains("release=64605", request);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Status_WhenPinnedReleaseIsCold_DoesNotFallback()
+    {
+        const string coldBody = """
+            {
+              "key": "movie:tmdb:200085",
+              "release_id": 64605,
+              "stream_generation": 0,
+              "stream_ready": false,
+              "state": "COLD",
+              "playback_state": "idle",
+              "source": "torrent",
+              "progress": 0.0,
+              "speed_bps": 0,
+              "recommended_release_id": 64604
+            }
+            """;
+        var (controller, handler, path) = CreateController(
+            coldBody,
+            strmUrl: "http://127.0.0.1:8773/play?key=movie%3Atmdb%3A200085&release=64605&download=0");
+        try
+        {
+            var result = await controller.Status(
+                Guid.NewGuid(), release: 64605, CancellationToken.None);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var json = ToJson(ok.Value);
+            Assert.Equal(64605, json.GetProperty("release_id").GetInt32());
+            Assert.Equal("COLD", json.GetProperty("status").GetProperty("state").GetString());
+            Assert.Single(handler.Requests);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Status_WhenFallbackLookupFails_KeepsOriginalStatus()
+    {
+        const string deadPinnedBody = """
+            {
+              "key": "movie:tmdb:200085",
+              "release_id": 64605,
+              "stream_ready": false,
+              "state": "UNAVAILABLE",
+              "source": "unavailable",
+              "reason": "stream_bad_swarm"
+            }
+            """;
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.strm");
+        File.WriteAllText(path, "http://127.0.0.1:8773/play?key=movie%3Atmdb%3A200085&release=64605&download=0\n");
+        try
+        {
+            var handler = new SequenceHandler(
+                (HttpStatusCode.OK, deadPinnedBody),
+                (HttpStatusCode.NotFound, """{"error":"sin_estado"}"""));
+            var proxy = new CatalogoProxyClient(new HttpClient(handler));
+            var item = new Movie { Path = path };
+            var library = DispatchProxy.Create<ILibraryManager, LibraryManagerProxy>();
+            ((LibraryManagerProxy)(object)library).Handler =
+                (method, _) => method.Name == nameof(ILibraryManager.GetItemById)
+                    ? item
+                    : throw new NotSupportedException(method.Name);
+
+            var controller = new CatalogoController(
+                library, proxy, NullLogger<CatalogoController>.Instance);
+
+            var result = await controller.Status(
+                Guid.NewGuid(), release: 64605, CancellationToken.None);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var json = ToJson(ok.Value);
+            Assert.Equal("UNAVAILABLE", json.GetProperty("status").GetProperty("state").GetString());
+            Assert.Equal(2, handler.Requests.Count);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Prepare_UsesPreparedReleaseIdWhenTodFallsBack()
+    {
+        var (controller, _, path) = CreateController(
+            """{"prepared":true,"release_id":64604,"status":{"stream_ready":false,"release_id":64604}}""");
+        try
+        {
+            var result = await controller.Prepare(
+                Guid.NewGuid(), release: 64605, CancellationToken.None);
+
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(202, objectResult.StatusCode);
+            var json = ToJson(objectResult.Value);
+            Assert.Equal(64604, json.GetProperty("release_id").GetInt32());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private static (CatalogoController Controller, RecordingHandler Handler, string Path)
         CreateController(
             string body,
@@ -253,6 +497,28 @@ public class MedusaContractTests
     {
         Assert.NotNull(value);
         return JsonSerializer.SerializeToElement(value, value!.GetType());
+    }
+
+    private sealed class SequenceHandler(
+        params (HttpStatusCode StatusCode, string Body)[] responses) : HttpMessageHandler
+    {
+        private int _index;
+        public List<HttpRequestMessage> Requests { get; } = new();
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            var pos = Math.Min(_index++, responses.Length - 1);
+            var (statusCode, body) = responses[pos];
+            return Task.FromResult(
+                new HttpResponseMessage(statusCode)
+                {
+                    Content = new StringContent(
+                        body, Encoding.UTF8, "application/json")
+                });
+        }
     }
 
     private sealed class RecordingHandler(

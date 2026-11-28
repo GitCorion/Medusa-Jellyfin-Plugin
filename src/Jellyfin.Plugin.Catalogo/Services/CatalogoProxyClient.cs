@@ -86,6 +86,182 @@ public class CatalogoProxyClient
     }
 
     /// <summary>
+    /// Gets the status for a catalog key, falling back to the unpinned
+    /// active/recommended status when a pinned release is unavailable or
+    /// switched away.
+    /// </summary>
+    public async Task<(JsonElement Status, int? EffectiveReleaseId, bool UsedFallback)> GetEffectiveStatusAsync(
+        string key,
+        int? releaseId,
+        int? maxWidth,
+        bool? supports4k,
+        bool? supportsDv,
+        CancellationToken cancellationToken)
+    {
+        var status = await GetStatusAsync(
+                key, releaseId, maxWidth, supports4k, supportsDv, cancellationToken)
+            .ConfigureAwait(false);
+        var effectiveRelease = ReadInt32(status, "release_id") ?? releaseId;
+        if (releaseId is null || !ShouldFallbackFromPinnedStatus(status))
+        {
+            return (status, effectiveRelease, false);
+        }
+
+        try
+        {
+            var fallback = await GetStatusAsync(
+                    key, null, maxWidth, supports4k, supportsDv, cancellationToken)
+                .ConfigureAwait(false);
+            if (IsPlayableOrActiveStatus(fallback))
+            {
+                var fallbackRelease = ReadInt32(fallback, "release_id")
+                    ?? ReadInt32(fallback, "recommended_release_id");
+                return (fallback, fallbackRelease, true);
+            }
+        }
+        catch (CatalogoProxyException)
+        {
+            // Keep the original pinned status when unpinned lookup fails.
+        }
+
+        return (status, effectiveRelease, false);
+    }
+
+    /// <summary>
+    /// Returns whether a status response for a pinned release indicates that
+    /// the release is dead, failed, or was switched away by TOD.
+    /// </summary>
+    public static bool ShouldFallbackFromPinnedStatus(JsonElement status)
+    {
+        if (status.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        if (status.TryGetProperty("stream_ready", out var readyProp)
+            && readyProp.ValueKind == JsonValueKind.True)
+        {
+            return false;
+        }
+
+        var state = ReadString(status, "state");
+        if (string.Equals(state, "UNAVAILABLE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(state, "ERROR", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var source = ReadString(status, "source");
+        if (string.Equals(source, "unavailable", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var playbackState = ReadString(status, "playback_state");
+        if (string.Equals(playbackState, "unavailable", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var reason = ReadString(status, "reason");
+        if (string.Equals(reason, "stream_bad_swarm", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(reason, "release_not_found", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(reason, "tracker_blocked", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (status.TryGetProperty("release_id", out var relProp)
+            && relProp.ValueKind == JsonValueKind.Null)
+        {
+            return true;
+        }
+
+        var switchReason = ReadString(status, "stream_switch_reason");
+        if (!string.IsNullOrWhiteSpace(switchReason))
+        {
+            var progress = ReadDouble(status, "progress") ?? 0.0;
+            var speedBps = ReadInt64(status, "speed_bps") ?? 0;
+            if (progress <= 0.0001 && speedBps <= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsPlayableOrActiveStatus(JsonElement status)
+    {
+        if (status.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        if (status.TryGetProperty("stream_ready", out var readyProp)
+            && readyProp.ValueKind == JsonValueKind.True)
+        {
+            return true;
+        }
+
+        var state = ReadString(status, "state");
+        var source = ReadString(status, "source");
+        return !string.Equals(state, "UNAVAILABLE", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(state, "ERROR", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(source, "unavailable", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static int? ReadInt32(JsonElement element, string name)
+    {
+        if (element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out var number))
+        {
+            return number;
+        }
+
+        return null;
+    }
+
+    private static long? ReadInt64(JsonElement element, string name)
+    {
+        if (element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt64(out var number))
+        {
+            return number;
+        }
+
+        return null;
+    }
+
+    private static double? ReadDouble(JsonElement element, string name)
+    {
+        if (element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.Number)
+        {
+            return value.GetDouble();
+        }
+
+        return null;
+    }
+
+    private static string? ReadString(JsonElement element, string name)
+    {
+        if (element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.String)
+        {
+            return value.GetString();
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Gets the playback metadata (codecs, resolution, audio) for a catalog key.
     /// </summary>
     public Task<JsonElement> GetMediaInfoAsync(

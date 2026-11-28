@@ -263,17 +263,22 @@ public class CatalogoController : ControllerBase
 
         try
         {
-            var status = await _proxy.GetStatusAsync(
-                mapped.Value.Key,
-                mapped.Value.ReleaseId,
-                maxWidth,
-                supports4k,
-                supportsDv,
-                cancellationToken);
+            var (status, effectiveReleaseId, _) =
+                await _proxy.GetEffectiveStatusAsync(
+                    mapped.Value.Key,
+                    mapped.Value.ReleaseId,
+                    maxWidth,
+                    supports4k,
+                    supportsDv,
+                    cancellationToken);
+            var responseReleaseId = effectiveReleaseId ?? mapped.Value.ReleaseId;
             var (recommendedMediaSourceId, recommendedReleaseId, versions) =
                 NegotiateVersions(
                     itemId,
-                    mapped.Value.ReleaseId,
+                    // TOD puede redirigir un release fijado sin marcarlo como
+                    // "unavailable" (p. ej. rescate local). Negociar siempre
+                    // con el release activo evita recomendar el viejo.
+                    responseReleaseId,
                     status,
                     maxWidth,
                     supports4k,
@@ -283,7 +288,7 @@ public class CatalogoController : ControllerBase
                 is_catalog = true,
                 item_id = itemId,
                 key = mapped.Value.Key,
-                release_id = mapped.Value.ReleaseId,
+                release_id = responseReleaseId,
                 status,
                 recommended_media_source_id = recommendedMediaSourceId,
                 recommended_release_id = recommendedReleaseId,
@@ -339,6 +344,8 @@ public class CatalogoController : ControllerBase
                 supports4k,
                 supportsDv,
                 cancellationToken);
+            var responseReleaseId = CatalogoProxyClient.ReadInt32(prepared, "release_id")
+                ?? mapped.Value.ReleaseId;
             return StatusCode(
                 202,
                 new
@@ -346,7 +353,7 @@ public class CatalogoController : ControllerBase
                     is_catalog = true,
                     item_id = itemId,
                     key = mapped.Value.Key,
-                    release_id = mapped.Value.ReleaseId,
+                    release_id = responseReleaseId,
                     prepared
                 });
         }

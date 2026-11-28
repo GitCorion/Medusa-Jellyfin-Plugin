@@ -397,9 +397,10 @@ public sealed class CatalogoMediaSourceManager : IMediaSourceManager, IDisposabl
         int? resolved = releaseId;
         try
         {
-            var status = await proxy.GetStatusAsync(key, resolved, cancellationToken)
+            var (status, effectiveReleaseId, _) = await proxy.GetEffectiveStatusAsync(
+                    key, resolved, null, null, null, cancellationToken)
                 .ConfigureAwait(false);
-            resolved = ReleaseId(status) ?? resolved;
+            resolved = effectiveReleaseId ?? ReleaseId(status) ?? resolved;
             complete = IsComplete(status);
             if (prepare && (resolved is null || !IsReady(status)))
             {
